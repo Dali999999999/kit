@@ -67,12 +67,24 @@ class PageGenerator {
         $filterCols = [];
         $sortCols = [];
         
+        $sorts = [];
         foreach ($fields as $name => $info) {
             if ($info['is_search']) { $hasSearch = true; $searchCols[] = $name; }
             if ($info['is_filter']) { $hasFilter = true; $filterCols[] = $name; }
-            if (!empty($info['sort_order'])) { 
+            if (!empty($info['sort_dir'])) { 
                 $hasSort = true; 
-                $sortCols[] = "`$name` " . strtoupper($info['sort_order']); 
+                $sorts[] = [
+                    'col' => $name,
+                    'dir' => strtoupper($info['sort_dir']),
+                    'prio' => (int)$info['sort_prio']
+                ];
+            }
+        }
+
+        if ($hasSort) {
+            usort($sorts, function($a, $b) { return $a['prio'] <=> $b['prio']; });
+            foreach ($sorts as $s) {
+                $sortCols[] = "`{$s['col']}` {$s['dir']}";
             }
         }
 

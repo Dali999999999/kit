@@ -73,7 +73,7 @@
                             <th>Champ SQL</th>
                             <th>Label Formulaire</th>
                             <th>Affichage (Si FK) & Select Dynamique</th>
-                            <th class="text-center">Ordre<br><small class="text-muted">(list.php)</small></th>
+                            <th class="text-center" style="width: 150px;">Ordre & Priorité<br><small class="text-muted">(ex: 1 ASC, 2 DESC)</small></th>
                             <th class="text-center" title="Recherche libre via LIKE">Recherche <i class="bi bi-search"></i></th>
                             <th class="text-center" title="Filtre via select">Filtre <i class="bi bi-funnel"></i></th>
                         </tr>
@@ -293,12 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${fkSelectHtml}
                                 ${dependHtml}
                             </td>
-                            <td class="text-center align-middle" style="width: 140px;">
-                                <select class="form-select form-select-sm sort-sel text-center">
-                                    <option value="">Par défaut</option>
-                                    <option value="ASC">A -> Z (Asc)</option>
-                                    <option value="DESC">Z -> A (Desc)</option>
-                                </select>
+                            <td class="text-center align-middle" style="width: 150px;">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control sort-prio text-center px-1" placeholder="N°" min="1" max="99" style="width: 45px; flex: none;">
+                                    <select class="form-select sort-dir px-1 text-center" style="width: 75px; flex: none; font-size: 0.85rem;">
+                                        <option value="">-</option>
+                                        <option value="ASC">ASC</option>
+                                        <option value="DESC">DESC</option>
+                                    </select>
+                                </div>
                             </td>
                             <td class="text-center align-middle">
                                 <div class="form-check form-switch d-inline-block">
@@ -334,14 +337,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const fkSel = row.querySelector('.fk-display-sel');
             const depOnSel = row.querySelector('.depend-on-sel');
             const depColSel = row.querySelector('.depend-col-sel');
-            const sortSel = row.querySelector('.sort-sel');
+            const sortPrio = row.querySelector('.sort-prio');
+            const sortDir = row.querySelector('.sort-dir');
             
             fields_config[field] = { 
                 label, 
                 fk_display: fkSel ? fkSel.value : null, 
                 depends_on: depOnSel ? depOnSel.value : null,
                 depends_col: depColSel ? depColSel.value : null,
-                sort_order: sortSel.value,
+                sort_prio: sortPrio && sortPrio.value ? parseInt(sortPrio.value) : 999,
+                sort_dir: sortDir ? sortDir.value : '',
                 is_search: row.querySelector('.chk-search').checked, 
                 is_filter: row.querySelector('.chk-filter').checked 
             };
