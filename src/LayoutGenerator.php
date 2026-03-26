@@ -151,11 +151,31 @@ class LayoutGenerator {
                 $c .= "            <li class=\"nav-item\"><a class=\"nav-link\" href=\"{$l['url']}\"{$tgt}>{$l['label']}</a></li>\n";
             }
             $c .= "          </ul>\n";
+            if ($isPhp) {
+                $c .= "          <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>\n";
+                $c .= "          <?php if (isset(\$_SESSION['user_id'])): ?>\n";
+                $c .= "             <div class=\"d-flex align-items-center\">\n";
+                $c .= "                 <span class=\"text-white me-3\"><i class=\"bi bi-person-circle\"></i> Bonjour, <?= htmlspecialchars(\$_SESSION['user_prenom'] ?? '') ?> <?= htmlspecialchars(\$_SESSION['user_name'] ?? '') ?></span>\n";
+                $c .= "                 <a href=\"logout.php\" class=\"btn btn-outline-danger btn-sm\">Déconnexion</a>\n";
+                $c .= "             </div>\n";
+                $c .= "          <?php endif; ?>\n";
+            }
             $c .= "        </div>\n";
             $c .= "      </div>\n";
             $c .= "    </nav>\n";
         } else {
-            $c .= "    <h4 class=\"text-center mb-4 text-white fw-bold\">Menu</h4>\n    <ul class=\"nav flex-column\">\n";
+            $c .= "    <h4 class=\"text-center mb-4 text-white fw-bold\">Menu</h4>\n";
+            if ($isPhp) {
+                $c .= "    <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>\n";
+                $c .= "    <?php if (isset(\$_SESSION['user_id'])): ?>\n";
+                $c .= "        <div class=\"text-center text-white mb-3 pb-3 border-bottom border-secondary\">\n";
+                $c .= "            <i class=\"bi bi-person-circle fs-3\"></i><br>\n";
+                $c .= "            <small><?= htmlspecialchars(\$_SESSION['user_prenom'] ?? '') ?> <?= htmlspecialchars(\$_SESSION['user_name'] ?? '') ?></small><br>\n";
+                $c .= "            <a href=\"logout.php\" class=\"btn btn-sm btn-outline-danger mt-2\">Déconnexion</a>\n";
+                $c .= "        </div>\n";
+                $c .= "    <?php endif; ?>\n";
+            }
+            $c .= "    <ul class=\"nav flex-column\">\n";
             foreach ($links as $l) {
                 $c .= "        <li class=\"nav-item\"><a class=\"nav-link\" href=\"{$l['url']}\"{$tgt}>{$l['label']}</a></li>\n";
             }
@@ -217,11 +237,27 @@ class LayoutGenerator {
             $c .= "            <li class=\"nav-item\"><a class=\"nav-link\" href=\"<?= \$url ?>\"{$tgt}><?= htmlspecialchars(\$i['$labelCol']) ?></a></li>\n";
             $c .= "          <?php endforeach; ?>\n";
             $c .= "          </ul>\n";
+            $c .= "          <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>\n";
+            $c .= "          <?php if (isset(\$_SESSION['user_id'])): ?>\n";
+            $c .= "             <div class=\"d-flex align-items-center\">\n";
+            $c .= "                 <span class=\"text-white me-3\"><i class=\"bi bi-person-circle\"></i> Bonjour, <?= htmlspecialchars(\$_SESSION['user_prenom'] ?? '') ?> <?= htmlspecialchars(\$_SESSION['user_name'] ?? '') ?></span>\n";
+            $c .= "                 <a href=\"logout.php\" class=\"btn btn-outline-danger btn-sm\">Déconnexion</a>\n";
+            $c .= "             </div>\n";
+            $c .= "          <?php endif; ?>\n";
             $c .= "        </div>\n";
             $c .= "      </div>\n";
             $c .= "    </nav>\n";
         } else {
-            $c .= "    <h4 class=\"text-center mb-4 text-white fw-bold\">Rubriques</h4>\n    <ul class=\"nav flex-column\">\n";
+            $c .= "    <h4 class=\"text-center mb-4 text-white fw-bold\">Rubriques</h4>\n";
+            $c .= "    <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>\n";
+            $c .= "    <?php if (isset(\$_SESSION['user_id'])): ?>\n";
+            $c .= "        <div class=\"text-center text-white mb-3 pb-3 border-bottom border-secondary\">\n";
+            $c .= "            <i class=\"bi bi-person-circle fs-3\"></i><br>\n";
+            $c .= "            <small><?= htmlspecialchars(\$_SESSION['user_prenom'] ?? '') ?> <?= htmlspecialchars(\$_SESSION['user_name'] ?? '') ?></small><br>\n";
+            $c .= "            <a href=\"logout.php\" class=\"btn btn-sm btn-outline-danger mt-2\">Déconnexion</a>\n";
+            $c .= "        </div>\n";
+            $c .= "    <?php endif; ?>\n";
+            $c .= "    <ul class=\"nav flex-column\">\n";
             $c .= "    <?php foreach (\$items as \$i): ?>\n";
             if (strpos($targetUrl, '?') !== false) {
                 $c .= "        <?php \$url = \"{$targetUrl}&\" . urlencode(\"{$idCol}\") . \"=\" . urlencode(\$i['$idCol']); ?>\n";

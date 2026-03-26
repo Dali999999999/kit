@@ -2,7 +2,7 @@
 namespace AIO\Src;
 
 class AuthGenerator {
-    public static function generateAuthFiles($table, $idCol, $passCol, $nameCol, $pk) {
+    public static function generateAuthFiles($table, $idCol, $passCol, $nameCol, $prenomCol, $pk) {
         // --- 1. logout.php ---
         $logoutCode = "<?php\nsession_start();\nsession_destroy();\nheader('Location: login.php');\nexit;\n?>";
 
@@ -23,6 +23,9 @@ class AuthGenerator {
         $loginCode .= "        \$_SESSION['user_id'] = \$user['$pk'];\n";
         if ($nameCol) {
             $loginCode .= "        \$_SESSION['user_name'] = \$user['$nameCol'];\n";
+        }
+        if ($prenomCol) {
+            $loginCode .= "        \$_SESSION['user_prenom'] = \$user['$prenomCol'];\n";
         }
         $loginCode .= "        header('Location: index.php'); // Redirection après connexion\n";
         $loginCode .= "        exit;\n";
@@ -55,6 +58,9 @@ class AuthGenerator {
         if ($nameCol) {
             $registerCode .= "    \$nom = \$_POST['nom'] ?? '';\n";
         }
+        if ($prenomCol) {
+            $registerCode .= "    \$prenom = \$_POST['prenom'] ?? '';\n";
+        }
         $registerCode .= "\n    // Vérifier si l'identifiant existe déjà\n";
         $registerCode .= "    \$stmt = \$pdo->prepare(\"SELECT `$pk` FROM `$table` WHERE `$idCol` = :id\");\n";
         $registerCode .= "    \$stmt->execute(['id' => \$identifiant]);\n";
@@ -63,9 +69,15 @@ class AuthGenerator {
         $registerCode .= "    } else {\n";
         $registerCode .= "        \$hashed_password = password_hash(\$mot_de_passe, PASSWORD_DEFAULT);\n";
         
-        if ($nameCol) {
+        if ($nameCol && $prenomCol) {
+            $registerCode .= "        \$stmt = \$pdo->prepare(\"INSERT INTO `$table` (`$idCol`, `$passCol`, `$nameCol`, `$prenomCol`) VALUES (:id, :pass, :nom, :prenom)\");\n";
+            $registerCode .= "        \$stmt->execute(['id' => \$identifiant, 'pass' => \$hashed_password, 'nom' => \$nom, 'prenom' => \$prenom]);\n";
+        } else if ($nameCol) {
             $registerCode .= "        \$stmt = \$pdo->prepare(\"INSERT INTO `$table` (`$idCol`, `$passCol`, `$nameCol`) VALUES (:id, :pass, :nom)\");\n";
             $registerCode .= "        \$stmt->execute(['id' => \$identifiant, 'pass' => \$hashed_password, 'nom' => \$nom]);\n";
+        } else if ($prenomCol) {
+            $registerCode .= "        \$stmt = \$pdo->prepare(\"INSERT INTO `$table` (`$idCol`, `$passCol`, `$prenomCol`) VALUES (:id, :pass, :prenom)\");\n";
+            $registerCode .= "        \$stmt->execute(['id' => \$identifiant, 'pass' => \$hashed_password, 'prenom' => \$prenom]);\n";
         } else {
             $registerCode .= "        \$stmt = \$pdo->prepare(\"INSERT INTO `$table` (`$idCol`, `$passCol`) VALUES (:id, :pass)\");\n";
             $registerCode .= "        \$stmt->execute(['id' => \$identifiant, 'pass' => \$hashed_password]);\n";
@@ -84,8 +96,11 @@ class AuthGenerator {
         $registerCode .= "        <?php if (\$error): ?>\n            <div class=\"alert alert-danger\"><?= \$error ?></div>\n        <?php endif; ?>\n";
         $registerCode .= "        <?php if (\$success): ?>\n            <div class=\"alert alert-success\"><?= \$success ?></div>\n        <?php endif; ?>\n";
         $registerCode .= "        <form method=\"POST\">\n";
+        if ($prenomCol) {
+            $registerCode .= "            <div class=\"mb-3\">\n                <label>Prénom ($prenomCol)</label>\n                <input type=\"text\" name=\"prenom\" class=\"form-control\" required>\n            </div>\n";
+        }
         if ($nameCol) {
-            $registerCode .= "            <div class=\"mb-3\">\n                <label>Nom Complet ($nameCol)</label>\n                <input type=\"text\" name=\"nom\" class=\"form-control\" required>\n            </div>\n";
+            $registerCode .= "            <div class=\"mb-3\">\n                <label>Nom ($nameCol)</label>\n                <input type=\"text\" name=\"nom\" class=\"form-control\" required>\n            </div>\n";
         }
         $registerCode .= "            <div class=\"mb-3\">\n                <label>Identifiant ($idCol)</label>\n                <input type=\"text\" name=\"identifiant\" class=\"form-control\" required>\n            </div>\n";
         $registerCode .= "            <div class=\"mb-3\">\n                <label>Mot de passe</label>\n                <input type=\"password\" name=\"mot_de_passe\" class=\"form-control\" required>\n            </div>\n";

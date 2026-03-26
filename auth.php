@@ -51,17 +51,21 @@
                 </div>
             </div>
             <div id="fields-config-area" class="row g-3 d-none p-3 bg-light rounded border">
-                <div class="col-md-4">
-                    <label class="form-label">Colonne "Identifiant" (ex: email, pseudo)</label>
+                <div class="col-md-3">
+                    <label class="form-label">Identifiant <small>(ex: email)</small></label>
                     <select id="id-col" class="form-select border-primary"></select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Colonne "Mot de passe" (ex: password)</label>
+                <div class="col-md-3">
+                    <label class="form-label">Mot de passe <small>(ex: mdp)</small></label>
                     <select id="pass-col" class="form-select border-danger"></select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Colonne "Nom complet" <small class="text-muted">(Optionnel)</small></label>
+                <div class="col-md-3">
+                    <label class="form-label">Nom <small>(Optionnel)</small></label>
                     <select id="name-col" class="form-select border-success"></select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Prénom <small>(Optionnel)</small></label>
+                    <select id="prenom-col" class="form-select border-success"></select>
                 </div>
                 <div class="col-md-12 text-end mt-4">
                     <button id="btn-generate" class="btn btn-dark btn-lg fw-bold"><i class="bi bi-magic"></i> Générer l'Espace Membre</button>
@@ -156,20 +160,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const idCol = document.getElementById('id-col');
                 const passCol = document.getElementById('pass-col');
                 const nameCol = document.getElementById('name-col');
+                const prenomCol = document.getElementById('prenom-col');
                 
                 idCol.innerHTML = ''; passCol.innerHTML = ''; 
                 nameCol.innerHTML = '<option value="">(Aucun)</option>';
+                prenomCol.innerHTML = '<option value="">(Aucun)</option>';
 
                 r.fields.forEach(f => {
                     idCol.add(new Option(f, f));
                     passCol.add(new Option(f, f));
                     nameCol.add(new Option(f, f));
+                    prenomCol.add(new Option(f, f));
                 });
                 
                 // Auto-sélection intelligente
                 Array.from(idCol.options).forEach(o => { if(['email', 'pseudo', 'login', 'username', 'identifiant'].includes(o.value.toLowerCase())) o.selected = true; });
                 Array.from(passCol.options).forEach(o => { if(['password', 'mdp', 'mot_de_passe', 'pass'].includes(o.value.toLowerCase())) o.selected = true; });
-                Array.from(nameCol.options).forEach(o => { if(['nom', 'name', 'nom_complet', 'fullname'].includes(o.value.toLowerCase())) o.selected = true; });
+                Array.from(nameCol.options).forEach(o => { if(['nom', 'name', 'nom_complet', 'fullname', 'last_name', 'lastname'].includes(o.value.toLowerCase())) o.selected = true; });
+                Array.from(prenomCol.options).forEach(o => { if(['prenom', 'prénom', 'firstname', 'first_name'].includes(o.value.toLowerCase())) o.selected = true; });
             }
         } catch(e) { alert("Erreur fetch_fields"); }
     });
@@ -180,7 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
             table: tableSelect.value, 
             id_col: document.getElementById('id-col').value,
             pass_col: document.getElementById('pass-col').value,
-            name_col: document.getElementById('name-col').value
+            name_col: document.getElementById('name-col').value,
+            prenom_col: document.getElementById('prenom-col').value
         };
         
         try {

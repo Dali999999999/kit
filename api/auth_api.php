@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action) {
             $idCol = $data['id_col'] ?? '';
             $passCol = $data['pass_col'] ?? '';
             $nameCol = $data['name_col'] ?? '';
+            $prenomCol = $data['prenom_col'] ?? '';
 
             $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
             
@@ -50,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action) {
                 if ($c['Key'] === 'PRI') { $pk = $c['Field']; break; }
             }
 
-            $codes = AuthGenerator::generateAuthFiles($table, $idCol, $passCol, $nameCol, $pk);
+            $codes = AuthGenerator::generateAuthFiles($table, $idCol, $passCol, $nameCol, $prenomCol, $pk);
 
             echo json_encode(array_merge(['success' => true], $codes));
             exit;
