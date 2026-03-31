@@ -331,7 +331,6 @@ class PageGenerator {
             $c .= "            </table>\n";
             $c .= "        </div>\n";
             $c .= "    </div>\n";
-            $c .= "    <?php endif; ?>\n";
         }
         $c .= "</div>\n";
         $c .= "</body>\n</html>";
@@ -774,7 +773,7 @@ class PageGenerator {
         $c .= "        delete_$table(\$pdo, \$id);\n";
         $c .= "    }\n";
         $c .= "}\n\n";
-        $c .= "header(\"Location: {\$files['list']}\");\nexit;\n?>";
+        $c .= "header(\"Location: {$files['list']}\");\nexit;\n?>";
         return $c;
     }
 
@@ -790,7 +789,7 @@ class PageGenerator {
         $c = "<?php\n";
         if ($isProtected) $c .= "require_once 'protect.php';\n";
         $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
-        $c .= "\$id = \$_GET['$primaryKey'] ?? null;\nif (!\$id) { header(\"Location: {\$files['list']}\"); exit; }\n\n";
+        $c .= "\$id = \$_GET['$primaryKey'] ?? null;\nif (!\$id) { header(\"Location: {$files['list']}\"); exit; }\n\n";
         $c .= "\$item = get_{$table}_by_id(\$pdo, \$id);\nif (!\$item) { die('Enregistrement introuvable.'); }\n\n";
 
         if ($filterFk && !$adminMode) {

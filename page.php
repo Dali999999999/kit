@@ -202,6 +202,9 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="delete-tab" data-bs-toggle="tab" data-bs-target="#delete-pane" type="button" role="tab"><i class="bi bi-trash"></i> delete.php</button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="style-tab" data-bs-toggle="tab" data-bs-target="#style-pane" type="button" role="tab"><i class="bi bi-palette"></i> style.css</button>
+            </li>
         </ul>
         
         <div class="tab-content" id="myTabContent">
@@ -227,6 +230,12 @@
                  <div class="code-box">
                     <button id="btn-copy-delete" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier delete.php</button>
                     <pre><code id="code-delete" class="language-php"></code></pre>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="style-pane" role="tabpanel">
+                 <div class="code-box">
+                    <button id="btn-copy-style" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier style.css</button>
+                    <pre><code id="code-style" class="language-css"></code></pre>
                 </div>
             </div>
         </div>
@@ -529,11 +538,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('edit-tab').innerHTML = `<i class="bi bi-pencil-square"></i> ${filenames.edit}`;
                 document.getElementById('delete-tab').innerHTML = `<i class="bi bi-trash"></i> ${filenames.delete}`;
 
-                document.getElementById('code-list').textContent = data.list_code;
-                document.getElementById('code-create').textContent = data.create_code;
-                document.getElementById('code-edit').textContent = data.edit_code;
-                document.getElementById('code-delete').textContent = data.delete_code;
-                document.getElementById('code-style').textContent = data.style_code;
+                const codeList = document.getElementById('code-list');
+                const codeCreate = document.getElementById('code-create');
+                const codeEdit = document.getElementById('code-edit');
+                const codeDelete = document.getElementById('code-delete');
+                const codeStyle = document.getElementById('code-style');
+
+                if (codeList) codeList.textContent = data.list_code;
+                if (codeCreate) codeCreate.textContent = data.create_code;
+                if (codeEdit) codeEdit.textContent = data.edit_code;
+                if (codeDelete) codeDelete.textContent = data.delete_code;
+                if (codeStyle) codeStyle.textContent = data.style_code;
 
                 if (generate_view) {
                     if (!document.getElementById('view-tab')) {
@@ -559,7 +574,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 document.getElementById('step-result').classList.remove('d-none');
-                document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+                document.querySelectorAll('pre code').forEach(el => {
+                    if (el.textContent) {
+                         delete el.dataset.highlighted;
+                         hljs.highlightElement(el);
+                    }
+                });
                 window.scrollTo({ top: document.getElementById('step-result').offsetTop, behavior: 'smooth' });
             } else {
                 alert(data.message || "Erreur lors de la génération.");
@@ -569,24 +589,16 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = false;
         }
     });
-                        el.textContent = data[k + '_code'];
-                        delete el.dataset.highlighted; 
-                        hljs.highlightElement(el);
-                    }
-                });
-                
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            } else { alert(data.message); }
-        } catch (e) { alert("Erreur lors de la génération."); } 
-        finally { btn.innerHTML = oldText; }
-    });
 
     // --- BTN COPY ---
     function setupCopy(btnId, outputId) {
-        document.getElementById(btnId).addEventListener('click', () => {
-            const text = document.getElementById(outputId).textContent;
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const outEl = document.getElementById(outputId);
+            if (!outEl) return;
+            const text = outEl.textContent;
             navigator.clipboard.writeText(text).then(() => {
-                const btn = document.getElementById(btnId);
                 const oldContent = btn.innerHTML;
                 btn.innerHTML = '<i class="bi bi-check2-all"></i> Copié !';
                 btn.classList.replace('btn-light', 'btn-success');
