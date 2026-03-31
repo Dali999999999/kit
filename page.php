@@ -74,8 +74,10 @@
                             <th>Label Formulaire</th>
                             <th>Affichage (Si FK) & Select Dynamique</th>
                             <th class="text-center" style="width: 150px;">Ordre & Priorité<br><small class="text-muted">(ex: 1 ASC, 2 DESC)</small></th>
-                            <th class="text-center" title="Recherche libre via LIKE">Recherche <i class="bi bi-search"></i></th>
-                            <th class="text-center" title="Filtre via select">Filtre <i class="bi bi-funnel"></i></th>
+                            <th class="text-center" title="Recherche libre via LIKE"><i class="bi bi-search"></i></th>
+                            <th class="text-center" title="Filtre via select"><i class="bi bi-funnel"></i></th>
+                            <th class="text-center" title="Visible dans Create"><i class="bi bi-plus-circle"></i> C</th>
+                            <th class="text-center" title="Visible dans Edit"><i class="bi bi-pencil-square"></i> M</th>
                         </tr>
                     </thead>
                     <tbody id="config-tbody"></tbody>
@@ -91,31 +93,87 @@
                             <div class="row g-4">
                                 <div class="col-md-4 border-end">
                                     <h6 class="fw-bold mb-3"><i class="bi bi-layout-split"></i> Disposition du Formulaire</h6>
-                                    <select id="sel-layout" class="form-select">
+                                    <select id="sel-layout" class="form-select mb-3">
                                         <option value="1">1 Colonne (Classique)</option>
                                         <option value="2">2 Colonnes (Compact)</option>
                                     </select>
+                                    
+                                    <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3-gap"></i> Style de Liste (list.php)</h6>
+                                    <select id="sel-list-layout" class="form-select mb-3">
+                                        <option value="table">Tableau Classique</option>
+                                        <option value="cards">Grille de Cards Bootstrap</option>
+                                    </select>
+
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="chk-generate-view" checked>
+                                        <label class="form-check-label fw-bold" for="chk-generate-view">Générer page de Détails (view.php)</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="chk-auto-join" checked>
+                                        <label class="form-check-label fw-bold" for="chk-auto-join">Auto-Joins SQL (Libellés FK)</label>
+                                    </div>
                                 </div>
                                 
                                 <div class="col-md-8">
                                     <h6 class="fw-bold mb-3"><i class="bi bi-shield-lock"></i> Sécurité & Espace Membre</h6>
-                                    <div class="d-flex gap-4 mb-2">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="chk-protect">
-                                            <label class="form-check-label fw-bold" for="chk-protect">Protéger ces pages (require 'protect.php')</label>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="chk-protect">
+                                                <label class="form-check-label fw-bold" for="chk-protect">Protéger ces pages (Auth)</label>
+                                            </div>
+                                            <div id="admin-mode-container" class="form-check form-switch d-none mb-3">
+                                                <input class="form-check-input" type="checkbox" id="chk-admin-mode">
+                                                <label class="form-check-label fw-bold" for="chk-admin-mode">Mode Admin Global (Accès total)</label>
+                                            </div>
                                         </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="chk-filter">
-                                            <label class="form-check-label fw-bold" for="chk-filter">Restreindre à l'utilisateur ciblé</label>
+                                        <div class="col-md-6">
+                                            <div id="filter-user-container" class="form-check form-switch d-none">
+                                                <input class="form-check-input" type="checkbox" id="chk-filter">
+                                                <label class="form-check-label fw-bold" for="chk-filter">Filtrer par Utilisateur</label>
+                                            </div>
                                         </div>
                                     </div>
+
                                     <div id="filter-options" class="d-none mt-2 p-3 bg-white border rounded">
                                         <label class="form-label text-muted small">Clé Étrangère de l'utilisateur session (ex: id_user)</label>
                                         <select id="filter-fk" class="form-select form-select-sm"></select>
                                     </div>
+
+                                    <div class="mt-4 pt-3 border-top">
+                                        <h6 class="fw-bold mb-2"><i class="bi bi-lightning"></i> Règles d'affichage conditionnel (Selects)</h6>
+                                        <div id="rules-container" class="mb-2 small"></div>
+                                        <button type="button" id="btn-add-rule" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus"></i> Ajouter une règle Show/Hide</button>
+                                    </div>
                                 </div>
                             </div>
                             
+                            <div class="mt-4 pt-3 border-top">
+                                <h5 class="text-secondary mb-3"><i class="bi bi-file-earmark-code"></i> Personnalisation des noms de fichiers</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Liste</label>
+                                        <input type="text" id="filename-list" class="form-control form-control-sm" placeholder="Ex: list_etudiants.php">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Création</label>
+                                        <input type="text" id="filename-create" class="form-control form-control-sm" placeholder="Ex: create_etudiant.php">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Modification</label>
+                                        <input type="text" id="filename-edit" class="form-control form-control-sm" placeholder="Ex: edit_etudiant.php">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Suppression</label>
+                                        <input type="text" id="filename-delete" class="form-control form-control-sm" placeholder="Ex: delete_etudiant.php">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Détails (View)</label>
+                                        <input type="text" id="filename-view" class="form-control form-control-sm" placeholder="Ex: view_etudiant.php">
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-muted small"><i class="bi bi-info-circle"></i> Ces noms seront utilisés pour les liens et redirections dans le code généré.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -310,7 +368,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             </td>
                             <td class="text-center align-middle">
                                 <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input chk-search" type="checkbox">
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="form-check form-switch d-inline-block">
                                     <input class="form-check-input chk-filter" type="checkbox">
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input chk-vis-create" type="checkbox" checked>
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input chk-vis-edit" type="checkbox" checked>
                                 </div>
                             </td>
                         </tr>
@@ -322,14 +395,73 @@ document.addEventListener('DOMContentLoaded', () => {
         finally { btn.innerHTML = oldText; }
     });
 
+    // --- RULES MANAGEMENT ---
+    const rulesContainer = document.getElementById('rules-container');
+    document.getElementById('btn-add-rule').addEventListener('click', () => {
+        const triggerOptions = currentFields.filter(f => f.is_fk || f.type.includes('enum')).map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+        const targetOptions = currentFields.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+        
+        const ruleDiv = document.createElement('div');
+        ruleDiv.className = 'rule-row d-flex align-items-center gap-2 mb-2 p-2 bg-white border rounded border-primary border-opacity-25';
+        ruleDiv.innerHTML = `
+            <span>SI</span>
+            <select class="form-select form-select-sm rule-trigger" style="width:130px">${triggerOptions}</select>
+            <span>==</span>
+            <input type="text" class="form-control form-control-sm rule-value" placeholder="Valeur" style="width:100px">
+            <span>ALORS</span>
+            <select class="form-select form-select-sm rule-action" style="width:90px"><option value="show">Afficher</option><option value="hide">Cacher</option></select>
+            <select class="form-select form-select-sm rule-target" style="width:130px">${targetOptions}</select>
+            <button class="btn btn-link btn-sm text-danger p-0" onclick="this.parentElement.remove()"><i class="bi bi-trash"></i></button>
+        `;
+        rulesContainer.appendChild(ruleDiv);
+    });
+
+    document.getElementById('chk-protect').addEventListener('change', function() {
+        document.getElementById('admin-mode-container').classList.toggle('d-none', !this.checked);
+        document.getElementById('filter-user-container').classList.toggle('d-none', !this.checked);
+        if(!this.checked) {
+            document.getElementById('chk-admin-mode').checked = false;
+            document.getElementById('chk-filter').checked = false;
+            document.getElementById('filter-options').classList.add('d-none');
+        }
+    });
+
     document.getElementById('chk-filter').addEventListener('change', function() {
         document.getElementById('filter-options').classList.toggle('d-none', !this.checked);
+        if(this.checked) document.getElementById('chk-admin-mode').checked = false;
+    });
+
+    document.getElementById('chk-admin-mode').addEventListener('change', function() {
+        if(this.checked) {
+            document.getElementById('chk-filter').checked = false;
+            document.getElementById('filter-options').classList.add('d-none');
+        }
+    });
+
+    // --- SUGGEST FILENAMES ---
+    tableSelect.addEventListener('change', () => {
+        const table = tableSelect.value;
+        if (!table) return;
+        document.getElementById('filename-list').value = `list_${table}.php`;
+        document.getElementById('filename-create').value = `create_${table}.php`;
+        document.getElementById('filename-edit').value = `edit_${table}.php`;
+        document.getElementById('filename-delete').value = `delete_${table}.php`;
+        document.getElementById('filename-view').value = `view_${table}.php`;
     });
 
     // --- BTN GENERATE ---
     document.getElementById('btn-generate').addEventListener('click', async () => {
         const host = hostInput.value, user = userInput.value, pass = passInput.value, dbname = dbnameInput.value, table = tableSelect.value;
-        
+        if (!table) return alert('Sélectionnez une table.');
+
+        const filenames = {
+            list: document.getElementById('filename-list').value || `list_${table}.php`,
+            create: document.getElementById('filename-create').value || `create_${table}.php`,
+            edit: document.getElementById('filename-edit').value || `edit_${table}.php`,
+            delete: document.getElementById('filename-delete').value || `delete_${table}.php`,
+            view: document.getElementById('filename-view').value || `view_${table}.php`
+        };
+
         const fields_config = {};
         document.querySelectorAll('.config-row').forEach(row => {
             const field = row.getAttribute('data-field');
@@ -348,33 +480,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 sort_prio: sortPrio && sortPrio.value ? parseInt(sortPrio.value) : 999,
                 sort_dir: sortDir ? sortDir.value : '',
                 is_search: row.querySelector('.chk-search').checked, 
-                is_filter: row.querySelector('.chk-filter').checked 
+                is_filter: row.querySelector('.chk-filter').checked,
+                vis_create: row.querySelector('.chk-vis-create').checked,
+                vis_edit: row.querySelector('.chk-vis-edit').checked
             };
+        });
+
+        const conditional_rules = [];
+        document.querySelectorAll('.rule-row').forEach(row => {
+            conditional_rules.push({
+                trigger: row.querySelector('.rule-trigger').value,
+                value: row.querySelector('.rule-value').value,
+                action: row.querySelector('.rule-action').value,
+                target: row.querySelector('.rule-target').value
+            });
         });
 
         const is_protected = document.getElementById('chk-protect').checked;
         const filter_fk = document.getElementById('chk-filter').checked ? document.getElementById('filter-fk').value : '';
+        const admin_mode = document.getElementById('chk-admin-mode').checked;
+        const generate_view = document.getElementById('chk-generate-view').checked;
+        const auto_join = document.getElementById('chk-auto-join').checked;
         const form_layout = document.getElementById('sel-layout').value;
-        const style_config = {}; // Obsolète grâce au Visual Builder
+        const list_layout = document.getElementById('sel-list-layout').value;
+        const style_config = {}; 
 
         const btn = document.getElementById('btn-generate');
         const oldText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Création...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Génération...';
+        btn.disabled = true;
 
         try {
             const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'generate', host, user, pass, dbname, table, fields_config, is_protected, filter_fk, form_layout, style_config })
+                body: JSON.stringify({ 
+                    action: 'generate', host, user, pass, dbname, table, fields_config, 
+                    is_protected, filter_fk, admin_mode, generate_view, auto_join, 
+                    conditional_rules, form_layout, list_layout, style_config, filenames
+                })
             });
             const data = await res.json();
-
+            
             if (data.success) {
-                document.getElementById('step-result').classList.remove('d-none');
+                // Update tab labels
+                document.getElementById('list-tab').innerHTML = `<i class="bi bi-table"></i> ${filenames.list}`;
+                document.getElementById('create-tab').innerHTML = `<i class="bi bi-plus-square"></i> ${filenames.create}`;
+                document.getElementById('edit-tab').innerHTML = `<i class="bi bi-pencil-square"></i> ${filenames.edit}`;
+                document.getElementById('delete-tab').innerHTML = `<i class="bi bi-trash"></i> ${filenames.delete}`;
+
+                document.getElementById('code-list').textContent = data.list_code;
+                document.getElementById('code-create').textContent = data.create_code;
+                document.getElementById('code-edit').textContent = data.edit_code;
+                document.getElementById('code-delete').textContent = data.delete_code;
+                document.getElementById('code-style').textContent = data.style_code;
+
+                if (generate_view) {
+                    if (!document.getElementById('view-tab')) {
+                        const tabsList = document.getElementById('myTab');
+                        const tabsContent = document.getElementById('myTabContent');
+                        const li = document.createElement('li');
+                        li.className = 'nav-item';
+                        li.innerHTML = `<button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view-pane" type="button" role="tab"></button>`;
+                        tabsList.appendChild(li);
+
+                        const pane = document.createElement('div');
+                        pane.className = 'tab-pane fade';
+                        pane.id = 'view-pane';
+                        pane.innerHTML = `<div class="code-box"><button id="btn-copy-view" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier</button><pre><code id="code-view" class="language-php"></code></pre></div>`;
+                        tabsContent.appendChild(pane);
+                        setupCopy('btn-copy-view', 'code-view');
+                    }
+                    document.getElementById('view-tab').innerHTML = `<i class="bi bi-eye"></i> ${filenames.view}`;
+                    document.getElementById('code-view').textContent = data.view_code;
+                    document.getElementById('view-tab').parentElement.classList.remove('d-none');
+                } else if (document.getElementById('view-tab')) {
+                    document.getElementById('view-tab').parentElement.classList.add('d-none');
+                }
                 
-                ['list', 'create', 'edit', 'delete'].forEach(k => {
-                    const el = document.getElementById('code-' + k);
-                    if(el) {
+                document.getElementById('step-result').classList.remove('d-none');
+                document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+                window.scrollTo({ top: document.getElementById('step-result').offsetTop, behavior: 'smooth' });
+            } else {
+                alert(data.message || "Erreur lors de la génération.");
+            }
+        } finally {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+        }
+    });
                         el.textContent = data[k + '_code'];
                         delete el.dataset.highlighted; 
                         hljs.highlightElement(el);

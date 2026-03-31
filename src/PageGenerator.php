@@ -41,7 +41,15 @@ class PageGenerator {
         return $c;
     }
 
-    public static function generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = []) {
+    public static function generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = [], $listLayout = 'table', $adminMode = false, $autoJoin = true, $hasView = false, $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'create' => "create_$table.php",
+            'edit' => "edit_$table.php",
+            'delete' => "delete_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
         $c = "<?php\n";
         if ($isProtected) {
             $c .= "require_once 'protect.php';\n";
@@ -50,13 +58,20 @@ class PageGenerator {
         $c .= "require_once 'fonction.php';\n\n";
         $c .= "\$pdo = connectbd();\n\n";
         
-        if (!empty($foreignKeys)) {
+        if (!empty($foreignKeys) && !$autoJoin) {
             foreach ($foreignKeys as $col => $fk) {
                 $fkTable = $fk['table'];
                 $fkCol = $fk['column'];
                 $c .= "\${$fkTable}s = get_all_{$fkTable}(\$pdo);\n";
                 $c .= "\${$fkTable}_map = [];\n";
                 $c .= "foreach (\${$fkTable}s as \$f) { \${$fkTable}_map[\$f['$fkCol']] = \$f; }\n\n";
+            }
+        } else if ($autoJoin) {
+            foreach ($fields as $name => $info) {
+                if ($info['is_filter'] && $info['is_fk']) {
+                    $fkTable = $info['fk_target'];
+                    $c .= "\${$fkTable}s = get_all_{$fkTable}(\$pdo);\n";
+                }
             }
         }
         
@@ -65,9 +80,8 @@ class PageGenerator {
         $hasSort = false;
         $searchCols = [];
         $filterCols = [];
-        $sortCols = [];
-        
         $sorts = [];
+        
         foreach ($fields as $name => $info) {
             if ($info['is_search']) { $hasSearch = true; $searchCols[] = $name; }
             if ($info['is_filter']) { $hasFilter = true; $filterCols[] = $name; }
@@ -76,58 +90,76 @@ class PageGenerator {
                 $sorts[] = [
                     'col' => $name,
                     'dir' => strtoupper($info['sort_dir']),
-                    'prio' => (int)$info['sort_prio']
+                    'prio' => (int)($info['sort_prio'] ?? 0)
                 ];
             }
         }
 
         if ($hasSort) {
             usort($sorts, function($a, $b) { return $a['prio'] <=> $b['prio']; });
+            $sortCols = [];
             foreach ($sorts as $s) {
-                $sortCols[] = "`{$s['col']}` {$s['dir']}";
+                $colPrefix = $autoJoin ? "t." : "";
+                $sortCols[] = "{$colPrefix}`{$s['col']}` {$s['dir']}";
             }
         }
 
-        if ($hasSearch || $hasFilter || $hasSort || $filterFk) {
-            $c .= "\n    // --- MOTEUR DE RECHERCHE, FILTRAGE & TRI ---\n";
-            $c .= "    \$sql = \"SELECT * FROM `$table` WHERE 1=1\";\n";
-            $c .= "    \$params = [];\n\n";
-            
-            if ($filterFk) {
-                $c .= "    \$sql .= \" AND `$filterFk` = :session_fk\";\n";
-                $c .= "    \$params[':session_fk'] = \$_SESSION['user_id'] ?? 0;\n\n";
-            }
-            
-            if ($hasSearch) {
-                $c .= "    if (!empty(\$_GET['q'])) {\n";
-                $searchConds = [];
-                foreach ($searchCols as $sc) {
-                    $searchConds[] = "`$sc` LIKE :q";
+        $c .= "    // --- MOTEUR DE RECHERCHE, FILTRAGE & TRI ---\n";
+        if ($autoJoin) {
+            $selectFields = ["t.*"];
+            $joins = [];
+            foreach ($fields as $name => $info) {
+                if ($info['is_fk'] && !empty($info['fk_display'])) {
+                    $fkTable = $info['fk_target'];
+                    $fkCol = $info['fk_col'];
+                    $fkDisp = $info['fk_display'];
+                    $alias = "ref_" . $name;
+                    $selectFields[] = "{$alias}.`{$fkDisp}` as `{$name}_label`";
+                    $joins[] = "LEFT JOIN `{$fkTable}` {$alias} ON t.`{$name}` = {$alias}.`{$fkCol}`";
                 }
-                $c .= "        \$sql .= \" AND (" . implode(' OR ', $searchConds) . ")\";\n";
-                $c .= "        \$params[':q'] = '%' . \$_GET['q'] . '%';\n";
+            }
+            $c .= "    \$sql = \"SELECT " . implode(', ', $selectFields) . " FROM `$table` t " . implode(' ', $joins) . " WHERE 1=1\";\n";
+        } else {
+            $c .= "    \$sql = \"SELECT * FROM `$table` WHERE 1=1\";\n";
+        }
+        
+        $c .= "    \$params = [];\n\n";
+        
+        if ($filterFk && !$adminMode) {
+            $colPrefix = $autoJoin ? "t." : "";
+            $c .= "    \$sql .= \" AND {$colPrefix}`$filterFk` = :session_fk\";\n";
+            $c .= "    \$params[':session_fk'] = \$_SESSION['user_id'] ?? 0;\n\n";
+        }
+        
+        if ($hasSearch) {
+            $c .= "    if (!empty(\$_GET['q'])) {\n";
+            $searchConds = [];
+            foreach ($searchCols as $sc) {
+                $colPrefix = $autoJoin ? "t." : "";
+                $searchConds[] = "{$colPrefix}`$sc` LIKE :q";
+            }
+            $c .= "        \$sql .= \" AND (" . implode(' OR ', $searchConds) . ")\";\n";
+            $c .= "        \$params[':q'] = '%' . \$_GET['q'] . '%';\n";
+            $c .= "    }\n\n";
+        }
+        
+        if ($hasFilter) {
+            foreach ($filterCols as $fc) {
+                $colPrefix = $autoJoin ? "t." : "";
+                $c .= "    if (isset(\$_GET['f_$fc']) && \$_GET['f_$fc'] !== '') {\n";
+                $c .= "        \$sql .= \" AND {$colPrefix}`$fc` = :f_$fc\";\n";
+                $c .= "        \$params[':f_$fc'] = \$_GET['f_$fc'];\n";
                 $c .= "    }\n\n";
             }
-            
-            if ($hasFilter) {
-                foreach ($filterCols as $fc) {
-                    $c .= "    if (isset(\$_GET['f_$fc']) && \$_GET['f_$fc'] !== '') {\n";
-                    $c .= "        \$sql .= \" AND `$fc` = :f_$fc\";\n";
-                    $c .= "        \$params[':f_$fc'] = \$_GET['f_$fc'];\n";
-                    $c .= "    }\n\n";
-                }
-            }
-            
-            if ($hasSort) {
-                $c .= "    \$sql .= \" ORDER BY " . implode(', ', $sortCols) . "\";\n";
-            }
-            
-            $c .= "    \$stmt = \$pdo->prepare(\$sql);\n";
-            $c .= "    \$stmt->execute(\$params);\n";
-            $c .= "    \$items = \$stmt->fetchAll(PDO::FETCH_ASSOC);\n";
-        } else {
-            $c .= "    \$items = get_all_{$table}(\$pdo);\n";
         }
+        
+        if ($hasSort) {
+            $c .= "    \$sql .= \" ORDER BY " . implode(', ', $sortCols) . "\";\n";
+        }
+        
+        $c .= "    \$stmt = \$pdo->prepare(\$sql);\n";
+        $c .= "    \$stmt->execute(\$params);\n";
+        $c .= "    \$items = \$stmt->fetchAll(PDO::FETCH_ASSOC);\n";
         $c .= "?>\n\n";
         
         $c .= "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n";
@@ -137,19 +169,17 @@ class PageGenerator {
         $c .= "    <link href=\"assets/css/bootstrap-icons.css\" rel=\"stylesheet\">\n";
         $c .= "    <link href=\"style.css\" rel=\"stylesheet\">\n";
         $c .= "</head>\n<body class=\"bg-light\">\n";
-        
         $c .= "<div class=\"container mt-5\">\n";
         $c .= "    <div class=\"d-flex justify-content-between align-items-center mb-4\">\n";
         $c .= "        <h2>Liste des ".ucfirst($table)."s</h2>\n";
         $btnClass = !empty($styleConfig) ? 'btn btn-save' : 'btn btn-success';
-        $c .= "        <a href=\"create_$table.php\" class=\"$btnClass\"><i class=\"bi bi-plus-circle\"></i> Ajouter</a>\n";
+        $c .= "        <a href=\"{$files['create']}\" class=\"$btnClass\"><i class=\"bi bi-plus-circle\"></i> Ajouter</a>\n";
         $c .= "    </div>\n\n";
 
         if ($hasSearch || $hasFilter) {
             $c .= "    <div class=\"card mb-4 shadow-sm\">\n";
             $c .= "        <div class=\"card-body bg-light\">\n";
             $c .= "            <form method=\"GET\" class=\"row gx-2 gy-2 align-items-center\">\n";
-            
             if ($hasSearch) {
                 $c .= "                <div class=\"col-auto\">\n";
                 $c .= "                    <div class=\"input-group\">\n";
@@ -158,14 +188,12 @@ class PageGenerator {
                 $c .= "                    </div>\n";
                 $c .= "                </div>\n";
             }
-            
             if ($hasFilter) {
                 foreach ($filterCols as $fc) {
                     $info = $fields[$fc];
                     $c .= "                <div class=\"col-auto\">\n";
                     $c .= "                    <select name=\"f_$fc\" class=\"form-select\">\n";
                     $c .= "                        <option value=\"\">-- ".htmlspecialchars($info['label'])." --</option>\n";
-                    
                     if ($info['is_fk']) {
                         $fkTable = $info['fk_target'];
                         $fkDisplay = $info['fk_display'];
@@ -189,78 +217,136 @@ class PageGenerator {
                         $c .= "                            <option value=\"<?= htmlspecialchars(\$rowD['$fc']) ?>\" <?= (isset(\$_GET['f_$fc']) && \$_GET['f_$fc'] == \$rowD['$fc']) ? 'selected' : '' ?>><?= htmlspecialchars(\$rowD['$fc']) ?></option>\n";
                         $c .= "                        <?php endwhile; ?>\n";
                     }
-                    
                     $c .= "                    </select>\n";
                     $c .= "                </div>\n";
                 }
             }
-            
             $btnFilterClass = !empty($styleConfig) ? 'btn btn-save' : 'btn btn-primary fw-bold';
             $btnResetClass = !empty($styleConfig) ? 'btn btn-cancel' : 'btn btn-outline-secondary';
             $c .= "                <div class=\"col-auto\">\n";
             $c .= "                    <button type=\"submit\" class=\"$btnFilterClass\">Filtrer</button>\n";
-            $c .= "                    <a href=\"list_$table.php\" class=\"$btnResetClass\">Reset</a>\n";
+            $c .= "                    <a href=\"{$files['list']}\" class=\"$btnResetClass\">Reset</a>\n";
             $c .= "                </div>\n";
             $c .= "            </form>\n";
             $c .= "        </div>\n";
             $c .= "    </div>\n\n";
         }
-        
-        $c .= "    <div class=\"card shadow-sm\">\n";
-        $c .= "        <div class=\"card-body p-0 table-responsive\">\n";
-        $c .= "            <table class=\"table table-hover table-bordered mb-0\">\n";
-        $c .= "                <thead class=\"table-dark\">\n";
-        $c .= "                    <tr>\n";
-        foreach ($fields as $name => $info) {
-            $c .= "                        <th>" . htmlspecialchars($info['label']) . "</th>\n";
-        }
-        $c .= "                        <th class=\"text-center\">Actions</th>\n";
-        $c .= "                    </tr>\n";
-        $c .= "                </thead>\n";
-        $c .= "                <tbody>\n";
-        $c .= "                    <?php foreach (\$items as \$item): ?>\n";
-        $c .= "                    <tr>\n";
-        foreach ($fields as $name => $info) {
-            if ($info['is_file']) {
-                $c .= "                        <td class=\"text-center\">\n";
-                $c .= "                            <?php if (\$item['$name']): ?>\n";
-                $c .= "                                <?php \$ext = strtolower(pathinfo(\$item['$name'], PATHINFO_EXTENSION)); ?>\n";
-                $c .= "                                <?php if (in_array(\$ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])): ?>\n";
-                $c .= "                                    <img src=\"uploads/<?= htmlspecialchars(\$item['$name']) ?>\" width=\"50\" height=\"50\" style=\"object-fit:cover; border-radius:4px;\">\n";
-                $c .= "                                <?php else: ?>\n";
-                $c .= "                                    <a href=\"uploads/<?= htmlspecialchars(\$item['$name']) ?>\" target=\"_blank\" class=\"btn btn-sm btn-outline-secondary\"><i class=\"bi bi-file-earmark-text\"></i> Fichier</a>\n";
-                $c .= "                                <?php endif; ?>\n";
-                $c .= "                            <?php else: ?>\n";
-                $c .= "                                <span class=\"text-muted\">-</span>\n";
-                $c .= "                            <?php endif; ?>\n";
-                $c .= "                        </td>\n";
-            } elseif ($info['is_fk']) {
-                $fkTable = $info['fk_target'];
-                $fkDisplay = $info['fk_display'];
-                $c .= "                        <td><?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?></td>\n";
+
+        if ($listLayout === 'cards') {
+            $c .= "    <div class=\"row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4\">\n";
+            $c .= "        <?php foreach (\$items as \$item): ?>\n";
+            $c .= "        <div class=\"col\">\n";
+            $c .= "            <div class=\"card h-100 shadow-sm border-0\">\n";
+            $fileCol = null;
+            foreach($fields as $name => $info) { if($info['is_file']) { $fileCol = $name; break; } }
+            if ($fileCol) {
+                $c .= "                <?php if (\$item['$fileCol'] && in_array(strtolower(pathinfo(\$item['$fileCol'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'])): ?>\n";
+                $c .= "                    <img src=\"uploads/<?= htmlspecialchars(\$item['$fileCol']) ?>\" class=\"card-img-top\" style=\"height: 200px; object-fit: cover;\">\n";
+                $c .= "                <?php else: ?>\n";
+                $c .= "                    <div class=\"bg-secondary text-white d-flex align-items-center justify-content-center\" style=\"height: 200px;\"><i class=\"bi bi-image fs-1 opacity-25\"></i></div>\n";
+                $c .= "                <?php endif; ?>\n";
             } else {
-                $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                $c .= "                <div class=\"bg-light text-center py-4 border-bottom\"><i class=\"bi bi-file-earmark-text fs-1 text-muted\"></i></div>\n";
             }
+            $c .= "                <div class=\"card-body\">\n";
+            $idx = 0;
+            foreach ($fields as $name => $info) {
+                if ($name === $fileCol) continue;
+                $label = htmlspecialchars($info['label']);
+                if ($idx === 0) $c .= "                    <h5 class=\"card-title text-primary fw-bold mb-3\"><?= htmlspecialchars(\$item['$name']) ?></h5>\n";
+                else {
+                    $c .= "                    <p class=\"card-text mb-1\"><small class=\"text-muted fw-bold\">$label :</small><br>\n";
+                    if ($info['is_fk']) {
+                        if ($autoJoin) $c .= "                        <?= htmlspecialchars(\$item['{$name}_label'] ?? \$item['$name']) ?>\n";
+                        else {
+                            $fkTable = $info['fk_target'];
+                            $fkDisplay = $info['fk_display'];
+                            $c .= "                        <?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?>\n";
+                        }
+                    } else $c .= "                        <?= htmlspecialchars(\$item['$name']) ?>\n";
+                    $c .= "                    </p>\n";
+                }
+                $idx++;
+            }
+            $c .= "                </div>\n";
+            $c .= "                <div class=\"card-footer bg-white border-0 d-flex justify-content-between pb-3\">\n";
+            if ($hasView) $c .= "                    <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-info btn-sm\"><i class=\"bi bi-eye\"></i></a>\n";
+            $c .= "                    <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-primary btn-sm\"><i class=\"bi bi-pencil\"></i> Modifier</a>\n";
+            $c .= "                    <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-danger btn-sm\" onclick=\"return confirm('Êtes-vous sûr ?')\"><i class=\"bi bi-trash\"></i> Supprimer</a>\n";
+            $c .= "                </div>\n";
+            $c .= "            </div>\n";
+            $c .= "        </div>\n";
+            $c .= "        <?php endforeach; ?>\n";
+            $c .= "    </div>\n";
+            $c .= "    <?php if (empty(\$items)): ?>\n";
+            $c .= "        <div class=\"alert alert-info text-center py-5\">Aucune donnée trouvée</div>\n";
+            $c .= "    <?php endif; ?>\n";
+        } else {
+            $c .= "    <div class=\"card shadow-sm\">\n";
+            $c .= "        <div class=\"card-body p-0 table-responsive\">\n";
+            $c .= "            <table class=\"table table-hover table-bordered mb-0\">\n";
+            $c .= "                <thead class=\"table-dark\">\n";
+            $c .= "                    <tr>\n";
+            foreach ($fields as $name => $info) $c .= "                        <th>" . htmlspecialchars($info['label']) . "</th>\n";
+            $c .= "                        <th class=\"text-center\">Actions</th>\n";
+            $c .= "                    </tr>\n";
+            $c .= "                </thead>\n";
+            $c .= "                <tbody>\n";
+            $c .= "                    <?php foreach (\$items as \$item): ?>\n";
+            $c .= "                    <tr>\n";
+            foreach ($fields as $name => $info) {
+                if ($info['is_file']) {
+                    $c .= "                        <td class=\"text-center\">\n";
+                    $c .= "                            <?php if (\$item['$name']): ?>\n";
+                    $c .= "                                <?php \$ext = strtolower(pathinfo(\$item['$name'], PATHINFO_EXTENSION)); ?>\n";
+                    $c .= "                                <?php if (in_array(\$ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])): ?>\n";
+                    $c .= "                                    <img src=\"uploads/<?= htmlspecialchars(\$item['$name']) ?>\" width=\"50\" height=\"50\" style=\"object-fit:cover; border-radius:4px;\">\n";
+                    $c .= "                                <?php else: ?>\n";
+                    $c .= "                                    <a href=\"uploads/<?= htmlspecialchars(\$item['$name']) ?>\" target=\"_blank\" class=\"btn btn-sm btn-outline-secondary\"><i class=\"bi bi-file-earmark-text\"></i> Fichier</a>\n";
+                    $c .= "                                <?php endif; ?>\n";
+                    $c .= "                            <?php else: ?>\n";
+                    $c .= "                                <span class=\"text-muted\">-</span>\n";
+                    $c .= "                            <?php endif; ?>\n";
+                    $c .= "                        </td>\n";
+                } elseif ($info['is_fk']) {
+                    if ($autoJoin) $c .= "                        <td><?= htmlspecialchars(\$item['{$name}_label'] ?? \$item['$name']) ?></td>\n";
+                    else {
+                        $fkTable = $info['fk_target'];
+                        $fkDisplay = $info['fk_display'];
+                        $c .= "                        <td><?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?></td>\n";
+                    }
+                } else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+            }
+            $c .= "                        <td class=\"text-center\">\n";
+            if ($hasView) $c .= "                            <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-info\"><i class=\"bi bi-eye text-white\"></i></a>\n";
+            $c .= "                            <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-primary\"><i class=\"bi bi-pencil\"></i></a>\n";
+            $c .= "                            <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-danger\" onclick=\"return confirm('Êtes-vous sûr ?')\"><i class=\"bi bi-trash\"></i></a>\n";
+            $c .= "                        </td>\n";
+            $c .= "                    </tr>\n";
+            $c .= "                    <?php endforeach; ?>\n";
+            $c .= "                    <?php if (empty(\$items)): ?>\n";
+            $c .= "                    <tr><td colspan=\"".(count($fields)+1)."\" class=\"text-center text-muted py-4\">Aucune donnée trouvée</td></tr>\n";
+            $c .= "                    <?php endif; ?>\n";
+            $c .= "                </tbody>\n";
+            $c .= "            </table>\n";
+            $c .= "        </div>\n";
+            $c .= "    </div>\n";
+            $c .= "    <?php endif; ?>\n";
         }
-        $c .= "                        <td class=\"text-center\">\n";
-        $c .= "                            <a href=\"edit_$table.php?$primaryKey=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-primary\"><i class=\"bi bi-pencil\"></i></a>\n";
-        $c .= "                            <a href=\"delete_$table.php?$primaryKey=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-danger\" onclick=\"return confirm('Êtes-vous sûr ?')\"><i class=\"bi bi-trash\"></i></a>\n";
-        $c .= "                        </td>\n";
-        $c .= "                    </tr>\n";
-        $c .= "                    <?php endforeach; ?>\n";
-        $c .= "                    <?php if (empty(\$items)): ?>\n";
-        $c .= "                    <tr><td colspan=\"".(count($fields)+1)."\" class=\"text-center text-muted py-4\">Aucune donnée trouvée</td></tr>\n";
-        $c .= "                    <?php endif; ?>\n";
-        $c .= "                </tbody>\n";
-        $c .= "            </table>\n";
-        $c .= "        </div>\n";
-        $c .= "    </div>\n";
-        $c .= "</div>\n\n";
+        $c .= "</div>\n";
         $c .= "</body>\n</html>";
         return $c;
     }
 
-    public static function generateCreateFile($table, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $formLayout = '1', $styleConfig = []) {
+    public static function generateCreateFile($table, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $formLayout = '1', $styleConfig = [], $conditionalRules = [], $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'create' => "create_$table.php",
+            'edit' => "edit_$table.php",
+            'delete' => "delete_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
         $c = "<?php\n";
         if ($isProtected) {
             $c .= "require_once 'protect.php';\n";
@@ -281,6 +367,9 @@ class PageGenerator {
         $insertArgs = [];
         foreach ($fields as $name => $info) {
             if ($info['is_ai']) continue;
+            if (isset($info['vis_create']) && !$info['vis_create']) {
+                 continue;
+            }
             
             if ($info['is_file']) {
                 $c .= "    \$$name = null;\n";
@@ -299,8 +388,9 @@ class PageGenerator {
             }
             $insertArgs[] = "\$$name";
         }
+        
         $c .= "\n    create_$table(\$pdo, " . implode(', ', $insertArgs) . ");\n";
-        $c .= "    header('Location: list_$table.php');\n";
+        $c .= "    header('Location: {$files['list']}');\n";
         $c .= "    exit;\n";
         $c .= "}\n";
         $c .= "?>\n\n";
@@ -328,9 +418,11 @@ class PageGenerator {
 
         foreach ($fields as $name => $info) {
             if ($info['is_ai'] || $name === $filterFk) continue; 
+            // Sauter les champs non visibles
+            if (isset($info['vis_create']) && !$info['vis_create']) continue;
 
-            if ($formLayout == '2') $c .= "                    <div class=\"col-md-6 mb-3\">\n";
-            else $c .= "                <div class=\"mb-3\">\n";
+            if ($formLayout == '2') $c .= "                    <div class=\"col-md-6 mb-3 " . "field-container-{$name}\">\n";
+            else $c .= "                <div class=\"mb-3 " . "field-container-{$name}\">\n";
 
             $c .= "                        <label class=\"form-label fw-bold\">" . htmlspecialchars($info['label']) . "</label>\n";
             
@@ -390,7 +482,7 @@ class PageGenerator {
         $btnSave = !empty($styleConfig) ? 'btn btn-save' : 'btn btn-success';
 
         $c .= "                <div class=\"d-flex justify-content-between mt-4\">\n";
-        $c .= "                    <a href=\"list_$table.php\" class=\"$btnBack\">Retour</a>\n";
+        $c .= "                    <a href=\"{$files['list']}\" class=\"$btnBack\">Retour</a>\n";
         $c .= "                    <button type=\"submit\" class=\"$btnSave\">Enregistrer</button>\n";
         $c .= "                </div>\n";
         $c .= "            </form>\n";
@@ -450,16 +542,25 @@ class PageGenerator {
             $c .= "</script>\n";
         }
 
+        $c .= self::generateConditionalLogicJS($conditionalRules);
+
         $c .= "</body>\n</html>";
         return $c;
     }
 
-    public static function generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $formLayout = '1', $styleConfig = []) {
+    public static function generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $formLayout = '1', $styleConfig = [], $conditionalRules = [], $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'create' => "create_$table.php",
+            'edit' => "edit_$table.php",
+            'delete' => "delete_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
         $c = "<?php\n";
-        // Setup initial PHP block (same structure as original)
         if ($isProtected) $c .= "require_once 'protect.php';\n";
         $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
-        $c .= "\$$primaryKey = \$_GET['$primaryKey'] ?? null;\nif (!\$$primaryKey) { die('ID manquant.'); }\n\n";
+        $c .= "\$$primaryKey = \$_GET['$primaryKey'] ?? null;\nif (!\$$primaryKey) { header(\"Location: {\$files['list']}\"); exit; }\n\n";
         $c .= "\$item = get_{$table}_by_id(\$pdo, \$$primaryKey);\nif (!\$item) { die('Enregistrement introuvable.'); }\n\n";
 
         if ($filterFk) {
@@ -478,6 +579,10 @@ class PageGenerator {
         $updateArgs = ["\$$primaryKey"];
         foreach ($fields as $name => $info) {
             if ($name === $primaryKey) continue;
+            if (isset($info['vis_edit']) && !$info['vis_edit']) {
+                 continue;
+            }
+            
             if ($info['is_file']) {
                 $c .= "    \$$name = \$item['$name'];\n";
                 $c .= "    if (isset(\$_FILES['$name']) && \$_FILES['$name']['error'] === UPLOAD_ERR_OK) {\n";
@@ -497,7 +602,7 @@ class PageGenerator {
             $updateArgs[] = "\$$name";
         }
         $c .= "\n    update_$table(\$pdo, " . implode(', ', $updateArgs) . ");\n";
-        $c .= "    header('Location: list_$table.php');\n";
+        $c .= "    header('Location: {$files['list']}');\n";
         $c .= "    exit;\n";
         $c .= "}\n?>\n\n";
 
@@ -522,9 +627,11 @@ class PageGenerator {
 
         foreach ($fields as $name => $info) {
             if ($name === $primaryKey || $name === $filterFk) continue;
+            // Sauter les champs non visibles
+            if (isset($info['vis_edit']) && !$info['vis_edit']) continue;
 
-            if ($formLayout == '2') $c .= "                    <div class=\"col-md-6 mb-3\">\n";
-            else $c .= "                <div class=\"mb-3\">\n";
+            if ($formLayout == '2') $c .= "                    <div class=\"col-md-6 mb-3 field-container-{$name}\">\n";
+            else $c .= "                <div class=\"mb-3 field-container-{$name}\">\n";
 
             $c .= "                        <label class=\"form-label fw-bold\">" . htmlspecialchars($info['label']) . "</label>\n";
             
@@ -590,7 +697,7 @@ class PageGenerator {
         $btnSave = !empty($styleConfig) ? 'btn btn-save' : 'btn btn-primary';
 
         $c .= "                <div class=\"d-flex justify-content-between mt-4\">\n";
-        $c .= "                    <a href=\"list_$table.php\" class=\"$btnBack\">Retour</a>\n";
+        $c .= "                    <a href=\"{$files['list']}\" class=\"$btnBack\">Retour</a>\n";
         $c .= "                    <button type=\"submit\" class=\"$btnSave\">Modifier</button>\n";
         $c .= "                </div>\n";
         $c .= "            </form>\n";
@@ -629,18 +736,34 @@ class PageGenerator {
             $c .= "</script>\n";
         }
 
+        $c .= self::generateConditionalLogicJS($conditionalRules);
+
         $c .= "</body>\n</html>";
         return $c;
     }
 
-    public static function generateDeleteFile($table, $primaryKey, $fields, $isProtected = false, $filterFk = '') {
+    public static function generateDeleteFile($table, $primaryKey, $fields, $isProtected = false, $filterFk = '', $adminMode = false, $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'create' => "create_$table.php",
+            'edit' => "edit_$table.php",
+            'delete' => "delete_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
         $c = "<?php\n";
         if ($isProtected) $c .= "require_once 'protect.php';\n";
         $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
         $c .= "if (isset(\$_GET['$primaryKey'])) {\n";
-        $c .= "    \$item = get_{$table}_by_id(\$pdo, \$_GET['$primaryKey']);\n";
-        if ($filterFk) $c .= "    if (\$item && \$item['$filterFk'] == \$_SESSION['user_id']) {\n";
-        else $c .= "    if (\$item) {\n";
+        $c .= "    \$id = \$_GET['$primaryKey'];\n";
+        $c .= "    \$item = get_{$table}_by_id(\$pdo, \$id);\n";
+        
+        if ($filterFk && !$adminMode) {
+            $c .= "    if (\$item && \$item['$filterFk'] == \$_SESSION['user_id']) {\n";
+        } else {
+            $c .= "    if (\$item) {\n";
+        }
+
         foreach ($fields as $name => $info) {
             if ($info['is_file']) {
                 $c .= "        if (\$item['$name'] && file_exists('uploads/' . \$item['$name'])) {\n";
@@ -648,10 +771,88 @@ class PageGenerator {
                 $c .= "        }\n";
             }
         }
-        $c .= "        delete_$table(\$pdo, \$_GET['$primaryKey']);\n";
+        $c .= "        delete_$table(\$pdo, \$id);\n";
         $c .= "    }\n";
         $c .= "}\n\n";
-        $c .= "header('Location: list_$table.php');\nexit;\n?>";
+        $c .= "header(\"Location: {\$files['list']}\");\nexit;\n?>";
         return $c;
+    }
+
+    public static function generateViewFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = [], $adminMode = false, $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'create' => "create_$table.php",
+            'edit' => "edit_$table.php",
+            'delete' => "delete_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
+        $c = "<?php\n";
+        if ($isProtected) $c .= "require_once 'protect.php';\n";
+        $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
+        $c .= "\$id = \$_GET['$primaryKey'] ?? null;\nif (!\$id) { header(\"Location: {\$files['list']}\"); exit; }\n\n";
+        $c .= "\$item = get_{$table}_by_id(\$pdo, \$id);\nif (!\$item) { die('Enregistrement introuvable.'); }\n\n";
+
+        if ($filterFk && !$adminMode) {
+            $c .= "if (\$item['$filterFk'] != \$_SESSION['user_id']) { die('Accès refusé.'); }\n\n";
+        }
+
+        if (!empty($foreignKeys)) {
+            foreach ($foreignKeys as $col => $fk) {
+                $fkTable = $fk['table'];
+                $fkCol = $fk['column'];
+                $c .= "\${$fkTable}s = get_all_{$fkTable}(\$pdo);\n";
+                $c .= "\${$fkTable}_map = [];\n";
+                $c .= "foreach (\${$fkTable}s as \$f) { \${$fkTable}_map[\$f['$fkCol']] = \$f; }\n\n";
+            }
+        }
+        $c .= "?>\n<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Détails</title>\n";
+        $c .= "    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+        $c .= "    <link href=\"style.css\" rel=\"stylesheet\">\n</head>\n<body class=\"bg-light\">\n";
+        $c .= "<div class=\"container mt-5\" style=\"max-width: 800px;\">\n    <div class=\"card shadow-sm\">\n";
+        $c .= "        <div class=\"card-header bg-info text-white d-flex justify-content-between align-items-center\">\n";
+        $c .= "            <h4 class=\"mb-0\">Détails du ".ucfirst($table)."</h4>\n";
+        $c .= "            <a href=\"{\$files['list']}\" class=\"btn btn-sm btn-light\">Retour</a>\n        </div>\n";
+        $c .= "        <div class=\"card-body\">\n            <table class=\"table table-bordered\">\n";
+        foreach ($fields as $name => $info) {
+             $c .= "                <tr>\n                    <th width=\"30%\" class=\"bg-light\">".htmlspecialchars($info['label'])."</th>\n";
+             if ($info['is_file']) {
+                 $c .= "                    <td>\n                        <?php if (\$item['$name']): ?>\n";
+                 $c .= "                            <a href=\"uploads/<?= htmlspecialchars(\$item['$name']) ?>\" target=\"_blank\">Voir le fichier</a>\n";
+                 $c .= "                        <?php else: ?>\n                            -\n                        <?php endif; ?>\n                    </td>\n";
+             } elseif ($info['is_fk']) {
+                 $fkTable = $info['fk_target'];
+                 $fkDisplay = $info['fk_display'];
+                 $c .= "                    <td><?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?></td>\n";
+             } else {
+                 $c .= "                    <td><?= nl2br(htmlspecialchars(\$item['$name'])) ?></td>\n";
+             }
+             $c .= "                </tr>\n";
+        }
+        $c .= "            </table>\n        </div>\n    </div>\n</div>\n</body>\n</html>";
+        return $c;
+    }
+
+    private static function generateConditionalLogicJS($conditionalRules) {
+        if (empty($conditionalRules)) return "";
+        $js = "\n<script>\n";
+        $js .= "document.addEventListener('DOMContentLoaded', function() {\n";
+        $js .= "    const rules = " . json_encode($conditionalRules) . ";\n";
+        $js .= "    rules.forEach(rule => {\n";
+        $js .= "        const trigger = document.querySelector('[name=\"' + rule.trigger + '\"]');\n";
+        $js .= "        const target = document.querySelector('.field-container-' + rule.target);\n";
+        $js .= "        if(trigger && target) {\n";
+        $js .= "            const applyRule = () => {\n";
+        $js .= "                const isMatch = String(trigger.value) === String(rule.value);\n";
+        $js .= "                if(rule.action === 'show') target.style.display = isMatch ? 'block' : 'none';\n";
+        $js .= "                else target.style.display = isMatch ? 'none' : 'block';\n";
+        $js .= "            };\n";
+        $js .= "            trigger.addEventListener('change', applyRule);\n";
+        $js .= "            applyRule();\n";
+        $js .= "        }\n";
+        $js .= "    });\n";
+        $js .= "});\n";
+        $js .= "</script>\n";
+        return $js;
     }
 }

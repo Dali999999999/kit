@@ -276,9 +276,70 @@ class LayoutGenerator {
     }
 
     /**
-     * Page Info.html de démonstration
+     * Page Info.html de démonstration (Accueil simple)
      */
     public static function generateInfoHtml() {
-        return "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Accueil</title>\n    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n</head>\n<body class=\"bg-light d-flex align-items-center justify-content-center\" style=\"height: 100vh;\">\n    <div class=\"text-center\">\n        <h1 class=\"display-4 text-primary fw-bold mb-3\"><i class=\"bi bi-house\"></i> Accueil</h1>\n        <p class=\"lead text-muted\">Sélectionnez un élément dans le menu pour démarrer la navigation.</p>\n    </div>\n</body>\n</html>";
+        return "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Accueil</title>\n    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n</head>\n<body class=\"bg-light d-flex align-items-center justify-content-center\" style=\"height: 100vh;\">\n    <div class=\"text-center\">\n        <h1 class=\"display-4 text-primary fw-bold mb-3\"><i class=\"bi bi-house\"></i> Accueil</h1>\n        <p class=\"lead text-muted\">Sélectionnez un élément dans le menu pour démarrer la navigation.</p>\n        <a href=\"dashboard.php\" class=\"btn btn-primary\">Voir le Tableau de Bord</a>\n    </div>\n</body>\n</html>";
+    }
+
+    /**
+     * Génère une page dashboard.php avec les statistiques de toutes les tables
+     */
+    public static function generateDashboardFile($tables) {
+        $c = "<?php\n";
+        $c .= "require_once 'config.php';\n";
+        $c .= "require_once 'fonction.php';\n";
+        $c .= "require_once 'protect.php';\n\n";
+        $c .= "\$pdo = connectbd();\n";
+        $c .= "\$stats = [];\n";
+        
+        // On normalise $tables pour qu'il soit toujours associatif [table => list_file]
+        $c .= "\$tableConfigs = [];\n";
+        $c .= "foreach (" . var_export($tables, true) . " as \$k => \$v) {\n";
+        $c .= "    if (is_numeric(\$k)) \$tableConfigs[\$v] = \"list_\$v.php\";\n";
+        $c .= "    else \$tableConfigs[\$k] = \$v;\n";
+        $c .= "}\n\n";
+        
+        $c .= "foreach (\$tableConfigs as \$t => \$file) {\n";
+        $c .= "    try {\n";
+        $c .= "        \$stmt = \$pdo->query(\"SELECT COUNT(*) FROM `\$t`\");\n";
+        $c .= "        \$stats[\$t] = [\n";
+        $c .= "            'count' => \$stmt->fetchColumn(),\n";
+        $c .= "            'file' => \$file\n";
+        $c .= "        ];\n";
+        $c .= "    } catch (Exception \$e) { \$stats[\$t] = ['count' => 0, 'file' => \$file]; }\n";
+        $c .= "}\n";
+        $c .= "?>\n";
+        $c .= "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n";
+        $c .= "    <meta charset=\"UTF-8\">\n";
+        $c .= "    <title>Tableau de Bord</title>\n";
+        $c .= "    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+        $c .= "    <link href=\"assets/css/bootstrap-icons.css\" rel=\"stylesheet\">\n";
+        $c .= "    <link href=\"style.css\" rel=\"stylesheet\">\n";
+        $c .= "</head>\n<body class=\"bg-light\">\n";
+        $c .= "<div class=\"container mt-5\">\n";
+        $c .= "    <h2 class=\"mb-4\"><i class=\"bi bi-speedometer2 text-primary\"></i> Tableau de Bord</h2>\n";
+        $c .= "    <div class=\"row row-cols-1 row-cols-md-3 g-4\">\n";
+        $c .= "        <?php foreach (\$stats as \$table => \$info): ?>\n";
+        $c .= "        <div class=\"col\">\n";
+        $c .= "            <div class=\"card h-100 shadow-sm border-0\">\n";
+        $c .= "                <div class=\"card-body d-flex align-items-center\">\n";
+        $c .= "                    <div class=\"rounded-circle bg-primary bg-opacity-10 p-3 me-3\">\n";
+        $c .= "                        <i class=\"bi bi-table text-primary fs-3\"></i>\n";
+        $c .= "                    </div>\n";
+        $c .= "                    <div>\n";
+        $c .= "                        <h5 class=\"card-title mb-0\"><?= ucfirst(str_replace('_', ' ', \$table)) ?></h5>\n";
+        $c .= "                        <h2 class=\"fw-bold mb-0\"><?= \$info['count'] ?></h2>\n";
+        $c .= "                    </div>\n";
+        $c .= "                </div>\n";
+        $c .= "                <div class=\"card-footer bg-white border-0\">\n";
+        $c .= "                    <a href=\"<?= \$info['file'] ?>\" class=\"btn btn-link p-0 text-decoration-none\">Gérer <i class=\"bi bi-arrow-right\"></i></a>\n";
+        $c .= "                </div>\n";
+        $c .= "            </div>\n";
+        $c .= "        </div>\n";
+        $c .= "        <?php endforeach; ?>\n";
+        $c .= "    </div>\n";
+        $c .= "</div>\n</body>\n</html>";
+        return $c;
     }
 }

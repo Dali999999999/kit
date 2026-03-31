@@ -72,11 +72,27 @@ if ($action === 'generate') {
         $menuPhp = LayoutGenerator::generateDynamicMenu($table, $labelCol, $idCol, $targetUrl, $menuTarget, $isMenuStandalone, $isNavbar);
     }
 
-    // 3. Sauvegarde
+    // 3. Récupérer les tables pour le Dashboard
+    $tables = [];
+    $host = $data['host'] ?? 'localhost';
+    $user = $data['user'] ?? 'root';
+    $pass = $data['pass'] ?? '';
+    $dbname = $data['dbname'] ?? '';
+    
+    if ($dbname) {
+        try {
+            $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {}
+    }
+    $dashboardPhp = LayoutGenerator::generateDashboardFile($tables);
+
+    // 4. Sauvegarde
     try {
         $resultData = [
             'success' => true,
-            'message' => 'L\'architecture a été générée avec succès dans le dossier cible !',
+            'message' => 'L\'architecture a été générée avec succès !',
             'files' => [],
             'codes' => []
         ];
@@ -105,6 +121,10 @@ if ($action === 'generate') {
         file_put_contents($target_dir . 'info.html', $infoHtml);
         $resultData['files'][] = 'info.html';
         $resultData['codes']['info'] = $infoHtml;
+
+        file_put_contents($target_dir . 'dashboard.php', $dashboardPhp);
+        $resultData['files'][] = 'dashboard.php';
+        $resultData['codes']['dashboard'] = $dashboardPhp;
 
         echo json_encode($resultData);
     } catch (\Exception $e) {

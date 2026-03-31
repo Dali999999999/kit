@@ -139,6 +139,8 @@ try {
                 'enum_values' => $enumValues,
                 'is_search' => !empty($cfg['is_search']),
                 'is_filter' => !empty($cfg['is_filter']),
+                'vis_create' => !isset($cfg['vis_create']) || $cfg['vis_create'] === true,
+                'vis_edit' => !isset($cfg['vis_edit']) || $cfg['vis_edit'] === true,
                 'sort_prio' => !empty($cfg['sort_prio']) ? (int)$cfg['sort_prio'] : 999,
                 'sort_dir'  => !empty($cfg['sort_dir']) ? $cfg['sort_dir'] : '',
                 'depends_on' => !empty($cfg['depends_on']) ? $cfg['depends_on'] : '',
@@ -155,13 +157,20 @@ try {
 
         $isProtected = $data['is_protected'] ?? false;
         $filterFk = $data['filter_fk'] ?? '';
+        $adminMode = $data['admin_mode'] ?? false;
+        $generateView = $data['generate_view'] ?? false;
+        $autoJoin = $data['auto_join'] ?? false;
+        $conditionalRules = $data['conditional_rules'] ?? [];
         $styleConfig = $data['style_config'] ?? [];
         $formLayout = $data['form_layout'] ?? '1';
+        $listLayout = $data['list_layout'] ?? 'table';
+        $filenames = $data['filenames'] ?? [];
 
-        $listCode = PageGenerator::generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig);
-        $createCode = PageGenerator::generateCreateFile($table, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig);
-        $editCode = PageGenerator::generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig);
-        $deleteCode = PageGenerator::generateDeleteFile($table, $primaryKey, $fields, $isProtected, $filterFk);
+        $listCode = PageGenerator::generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $listLayout, $adminMode, $autoJoin, $generateView, $filenames);
+        $createCode = PageGenerator::generateCreateFile($table, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig, $conditionalRules, $filenames);
+        $editCode = PageGenerator::generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig, $conditionalRules, $filenames);
+        $deleteCode = PageGenerator::generateDeleteFile($table, $primaryKey, $fields, $isProtected, $filterFk, $adminMode, $filenames);
+        $viewCode = $generateView ? PageGenerator::generateViewFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $adminMode, $filenames) : '';
         $styleCode = PageGenerator::generateStyleFile($styleConfig);
 
         echo json_encode([
@@ -170,6 +179,7 @@ try {
             'create_code' => $createCode,
             'edit_code' => $editCode,
             'delete_code' => $deleteCode,
+            'view_code' => $viewCode,
             'style_code' => $styleCode,
             'message' => 'Génération réussie !'
         ]);
