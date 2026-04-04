@@ -69,16 +69,26 @@
             <div class="table-responsive">
                 <table class="table table-bordered align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th>Champ SQL</th>
-                            <th>Label Formulaire</th>
+                            <th style="min-width: 140px;">Champ SQL</th>
+                            <th style="min-width: 180px;">Label Formulaire</th>
                             <th>Affichage (Si FK) & Select Dynamique</th>
-                            <th class="text-center" style="width: 150px;">Ordre & Priorité<br><small class="text-muted">(ex: 1 ASC, 2 DESC)</small></th>
-                            <th class="text-center" title="Recherche libre via LIKE"><i class="bi bi-search"></i></th>
-                            <th class="text-center" title="Filtre via select"><i class="bi bi-funnel"></i></th>
-                            <th class="text-center" title="Visible dans Create"><i class="bi bi-plus-circle"></i> C</th>
-                            <th class="text-center" title="Visible dans Edit"><i class="bi bi-pencil-square"></i> M</th>
-                        </tr>
+                            <th class="text-center" style="width: 130px;">Tri & Ordre<br><small class="text-muted">(ex: 1 ASC)</small></th>
+                            <th class="text-center" style="width: 70px;" title="Recherche libre (LIKE %q%)">
+                                <i class="bi bi-search d-block mb-1"></i>
+                                <span class="small fw-bold">LIKE</span>
+                            </th>
+                            <th class="text-center" style="width: 70px;" title="Filtre via liste déroulante">
+                                <i class="bi bi-funnel d-block mb-1"></i>
+                                <span class="small fw-bold">Filtre</span>
+                            </th>
+                            <th class="text-center" style="width: 70px;" title="Visible dans Create (AJOUT)">
+                                <i class="bi bi-plus-circle d-block mb-1"></i>
+                                <span class="small fw-bold">Ajout</span>
+                            </th>
+                            <th class="text-center" style="width: 70px;" title="Visible dans Edit (MODIF)">
+                                <i class="bi bi-pencil-square d-block mb-1"></i>
+                                <span class="small fw-bold">Modif</span>
+                            </th>
                     </thead>
                     <tbody id="config-tbody"></tbody>
                 </table>
@@ -107,6 +117,10 @@
                                     <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" id="chk-generate-view" checked>
                                         <label class="form-check-label fw-bold" for="chk-generate-view">Générer page de Détails (view.php)</label>
+                                    </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="chk-generate-search" checked>
+                                        <label class="form-check-label fw-bold" for="chk-generate-search">Générer page de Recherche (search.php)</label>
                                     </div>
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="chk-auto-join" checked>
@@ -171,6 +185,10 @@
                                         <label class="form-label small fw-bold">Détails (View)</label>
                                         <input type="text" id="filename-view" class="form-control form-control-sm" placeholder="Ex: view_etudiant.php">
                                     </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-bold">Recherche (Search)</label>
+                                        <input type="text" id="filename-search" class="form-control form-control-sm" placeholder="Ex: research_med.php">
+                                    </div>
                                 </div>
                                 <div class="mt-2 text-muted small"><i class="bi bi-info-circle"></i> Ces noms seront utilisés pour les liens et redirections dans le code généré.</div>
                             </div>
@@ -202,6 +220,12 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="delete-tab" data-bs-toggle="tab" data-bs-target="#delete-pane" type="button" role="tab"><i class="bi bi-trash"></i> delete.php</button>
             </li>
+            <li class="nav-item d-none" id="view-tab-li">
+                <button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view-pane" type="button" role="tab"><i class="bi bi-eye"></i> view.php</button>
+            </li>
+            <li class="nav-item d-none" id="search-tab-li">
+                <button class="nav-link" id="search-tab" data-bs-toggle="tab" data-bs-target="#search-pane" type="button" role="tab"><i class="bi bi-search"></i> search.php</button>
+            </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="style-tab" data-bs-toggle="tab" data-bs-target="#style-pane" type="button" role="tab"><i class="bi bi-palette"></i> style.css</button>
             </li>
@@ -230,6 +254,18 @@
                  <div class="code-box">
                     <button id="btn-copy-delete" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier delete.php</button>
                     <pre><code id="code-delete" class="language-php"></code></pre>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="view-pane" role="tabpanel">
+                 <div class="code-box">
+                    <button id="btn-copy-view" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier</button>
+                    <pre><code id="code-view" class="language-php"></code></pre>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="search-pane" role="tabpanel">
+                 <div class="code-box">
+                    <button id="btn-copy-search" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier</button>
+                    <pre><code id="code-search" class="language-php"></code></pre>
                 </div>
             </div>
             <div class="tab-pane fade" id="style-pane" role="tabpanel">
@@ -377,11 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             </td>
                             <td class="text-center align-middle">
                                 <div class="form-check form-switch d-inline-block">
-                                    <input class="form-check-input chk-search" type="checkbox">
-                                </div>
-                            </td>
-                            <td class="text-center align-middle">
-                                <div class="form-check form-switch d-inline-block">
                                     <input class="form-check-input chk-filter" type="checkbox">
                                 </div>
                             </td>
@@ -456,6 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filename-edit').value = `edit_${table}.php`;
         document.getElementById('filename-delete').value = `delete_${table}.php`;
         document.getElementById('filename-view').value = `view_${table}.php`;
+        document.getElementById('filename-search').value = `search_${table}.php`;
     });
 
     // --- BTN GENERATE ---
@@ -468,7 +500,8 @@ document.addEventListener('DOMContentLoaded', () => {
             create: document.getElementById('filename-create').value || `create_${table}.php`,
             edit: document.getElementById('filename-edit').value || `edit_${table}.php`,
             delete: document.getElementById('filename-delete').value || `delete_${table}.php`,
-            view: document.getElementById('filename-view').value || `view_${table}.php`
+            view: document.getElementById('filename-view').value || `view_${table}.php`,
+            search: document.getElementById('filename-search').value || `search_${table}.php`
         };
 
         const fields_config = {};
@@ -509,6 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const filter_fk = document.getElementById('chk-filter').checked ? document.getElementById('filter-fk').value : '';
         const admin_mode = document.getElementById('chk-admin-mode').checked;
         const generate_view = document.getElementById('chk-generate-view').checked;
+        const generate_search = document.getElementById('chk-generate-search').checked;
         const auto_join = document.getElementById('chk-auto-join').checked;
         const form_layout = document.getElementById('sel-layout').value;
         const list_layout = document.getElementById('sel-list-layout').value;
@@ -525,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
                     action: 'generate', host, user, pass, dbname, table, fields_config, 
-                    is_protected, filter_fk, admin_mode, generate_view, auto_join, 
+                    is_protected, filter_fk, admin_mode, generate_view, generate_search, auto_join, 
                     conditional_rules, form_layout, list_layout, style_config, filenames
                 })
             });
@@ -543,34 +577,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 const codeEdit = document.getElementById('code-edit');
                 const codeDelete = document.getElementById('code-delete');
                 const codeStyle = document.getElementById('code-style');
+                const codeView = document.getElementById('code-view');
+                const codeSearch = document.getElementById('code-search');
 
                 if (codeList) codeList.textContent = data.list_code;
                 if (codeCreate) codeCreate.textContent = data.create_code;
                 if (codeEdit) codeEdit.textContent = data.edit_code;
                 if (codeDelete) codeDelete.textContent = data.delete_code;
                 if (codeStyle) codeStyle.textContent = data.style_code;
+                if (codeView) codeView.textContent = data.view_code;
+                if (codeSearch) codeSearch.textContent = data.search_code;
 
+                // View tab
+                const viewLi = document.getElementById('view-tab-li');
                 if (generate_view) {
-                    if (!document.getElementById('view-tab')) {
-                        const tabsList = document.getElementById('myTab');
-                        const tabsContent = document.getElementById('myTabContent');
-                        const li = document.createElement('li');
-                        li.className = 'nav-item';
-                        li.innerHTML = `<button class="nav-link" id="view-tab" data-bs-toggle="tab" data-bs-target="#view-pane" type="button" role="tab"></button>`;
-                        tabsList.appendChild(li);
-
-                        const pane = document.createElement('div');
-                        pane.className = 'tab-pane fade';
-                        pane.id = 'view-pane';
-                        pane.innerHTML = `<div class="code-box"><button id="btn-copy-view" class="btn btn-light btn-sm position-absolute top-0 end-0 m-3 fw-bold btn-copy" style="z-index: 10;"><i class="bi bi-copy"></i> Copier</button><pre><code id="code-view" class="language-php"></code></pre></div>`;
-                        tabsContent.appendChild(pane);
-                        setupCopy('btn-copy-view', 'code-view');
-                    }
                     document.getElementById('view-tab').innerHTML = `<i class="bi bi-eye"></i> ${filenames.view}`;
-                    document.getElementById('code-view').textContent = data.view_code;
-                    document.getElementById('view-tab').parentElement.classList.remove('d-none');
-                } else if (document.getElementById('view-tab')) {
-                    document.getElementById('view-tab').parentElement.classList.add('d-none');
+                    viewLi.classList.remove('d-none');
+                } else {
+                    viewLi.classList.add('d-none');
+                }
+
+                // Search tab
+                const searchLi = document.getElementById('search-tab-li');
+                if (generate_search) {
+                    document.getElementById('search-tab').innerHTML = `<i class="bi bi-search"></i> ${filenames.search}`;
+                    searchLi.classList.remove('d-none');
+                } else {
+                    searchLi.classList.add('d-none');
                 }
                 
                 document.getElementById('step-result').classList.remove('d-none');
@@ -617,6 +650,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCopy('btn-copy-edit', 'code-edit');
     setupCopy('btn-copy-delete', 'code-delete');
     setupCopy('btn-copy-style', 'code-style');
+    setupCopy('btn-copy-view', 'code-view');
+    setupCopy('btn-copy-search', 'code-search');
 
 });
 </script>

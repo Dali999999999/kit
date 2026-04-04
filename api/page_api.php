@@ -159,6 +159,7 @@ try {
         $filterFk = $data['filter_fk'] ?? '';
         $adminMode = $data['admin_mode'] ?? false;
         $generateView = $data['generate_view'] ?? false;
+        $generateSearch = $data['generate_search'] ?? false;
         $autoJoin = $data['auto_join'] ?? false;
         $conditionalRules = $data['conditional_rules'] ?? [];
         $styleConfig = $data['style_config'] ?? [];
@@ -171,6 +172,7 @@ try {
         $editCode = PageGenerator::generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig, $conditionalRules, $filenames);
         $deleteCode = PageGenerator::generateDeleteFile($table, $primaryKey, $fields, $isProtected, $filterFk, $adminMode, $filenames);
         $viewCode = $generateView ? PageGenerator::generateViewFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $adminMode, $filenames) : '';
+        $searchCode = $generateSearch ? PageGenerator::generateSearchFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $adminMode, $autoJoin, $filenames) : '';
         $styleCode = PageGenerator::generateStyleFile($styleConfig);
 
         echo json_encode([
@@ -180,6 +182,7 @@ try {
             'edit_code' => $editCode,
             'delete_code' => $deleteCode,
             'view_code' => $viewCode,
+            'search_code' => $searchCode,
             'style_code' => $styleCode,
             'message' => 'Génération réussie !'
         ]);

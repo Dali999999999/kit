@@ -21,8 +21,8 @@ class DbGenerator {
 
             foreach ($fields as $field) {
                 $name = $field['name'];
-                $type = $field['type'];
-                $length = $field['length'];
+                $type = !empty($field['type']) ? trim($field['type']) : 'VARCHAR';
+                $length = isset($field['length']) ? trim($field['length']) : '';
                 $isNn = $field['nn'] ?? $field['isNn'] ?? false; // Support old/new keys
                 $isUq = $field['uq'] ?? $field['isUq'] ?? false;
                 $isPk = $field['pk'] ?? $field['isPk'] ?? false;
@@ -32,7 +32,22 @@ class DbGenerator {
                 $fkTable = $field['fkTable'] ?? '';
                 $fkField = $field['fkField'] ?? '';
 
-                $fullType = $type;
+                if (strtoupper($type) === 'VARCHAR' && empty($length)) {
+                    $length = '255';
+                }
+
+                $fullType = strtoupper($type);
+                
+                // Types that do not take a length parameter, or where length causes errors
+                $noLengthTypes = ['DATE', 'DATETIME', 'BOOLEAN', 'TEXT', 'TINYINT', 'LONGTEXT', 'MEDIUMTEXT'];
+                if (in_array($fullType, $noLengthTypes) && is_numeric($length)) {
+                    if ($fullType === 'DATETIME' && (int)$length <= 6) {
+                        // DATETIME safely accepts 0-6 length
+                    } else {
+                        $length = '';
+                    }
+                }
+
                 if (!empty($length)) {
                     $fullType .= "($length)";
                 }

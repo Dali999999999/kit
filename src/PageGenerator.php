@@ -789,7 +789,7 @@ class PageGenerator {
         $c = "<?php\n";
         if ($isProtected) $c .= "require_once 'protect.php';\n";
         $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
-        $c .= "\$id = \$_GET['$primaryKey'] ?? null;\nif (!\$id) { header(\"Location: {$files['list']}\"); exit; }\n\n";
+        $c .= "\$id = \$_GET['$primaryKey'] ?? null;\nif (!\$id) { header(\"Location: {\$files['list']}\"); exit; }\n\n";
         $c .= "\$item = get_{$table}_by_id(\$pdo, \$id);\nif (!\$item) { die('Enregistrement introuvable.'); }\n\n";
 
         if ($filterFk && !$adminMode) {
@@ -829,6 +829,118 @@ class PageGenerator {
              $c .= "                </tr>\n";
         }
         $c .= "            </table>\n        </div>\n    </div>\n</div>\n</body>\n</html>";
+        return $c;
+    }
+
+    public static function generateSearchFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = [], $adminMode = false, $autoJoin = true, $filenames = []) {
+        $files = array_merge([
+            'list' => "list_$table.php",
+            'search' => "search_$table.php",
+            'view' => "view_$table.php"
+        ], $filenames);
+
+        $c = "<?php\n";
+        if ($isProtected) $c .= "require_once 'protect.php';\n";
+        $c .= "require_once 'config.php';\nrequire_once 'fonction.php';\n\n\$pdo = connectbd();\n\n";
+
+        $filterCols = [];
+        foreach ($fields as $name => $info) {
+            if ($info['is_filter']) {
+                $filterCols[] = $name;
+                if ($info['is_fk']) {
+                    $fkTable = $info['fk_target'];
+                    $c .= "\${$fkTable}s = get_all_{$fkTable}(\$pdo);\n";
+                }
+            }
+        }
+
+        $c .= "\n\$items = [];\n\$hasFilter = false;\n";
+        $c .= "if (\$_SERVER['REQUEST_METHOD'] === 'GET' && !empty(\$_GET)) {\n";
+        $c .= "    \$hasFilter = true;\n";
+        
+        if ($autoJoin) {
+            $selectFields = ["t.*"];
+            $joins = [];
+            foreach ($fields as $name => $info) {
+                if ($info['is_fk'] && !empty($info['fk_display'])) {
+                    $fkTable = $info['fk_target'];
+                    $fkCol = $info['fk_col'];
+                    $fkDisp = $info['fk_display'];
+                    $alias = "ref_" . $name;
+                    $selectFields[] = "{$alias}.`{$fkDisp}` as `{$name}_label`";
+                    $joins[] = "LEFT JOIN `{$fkTable}` {$alias} ON t.`{$name}` = {$alias}.`{$fkCol}`";
+                }
+            }
+            $c .= "    \$sql = \"SELECT " . implode(', ', $selectFields) . " FROM `$table` t " . implode(' ', $joins) . " WHERE 1=1\";\n";
+        } else {
+            $c .= "    \$sql = \"SELECT * FROM `$table` WHERE 1=1\";\n";
+        }
+        
+        $c .= "    \$params = [];\n";
+        foreach ($filterCols as $fc) {
+            $c .= "    if (!empty(\$_GET['$fc'])) {\n";
+            $c .= "        \$sql .= \" AND t.`$fc` = :$fc\";\n";
+            $c .= "        \$params[':$fc'] = \$_GET['$fc'];\n";
+            $c .= "    }\n";
+        }
+        
+        $c .= "    \$stmt = \$pdo->prepare(\$sql);\n";
+        $c .= "    \$stmt->execute(\$params);\n";
+        $c .= "    \$items = \$stmt->fetchAll(PDO::FETCH_ASSOC);\n";
+        $c .= "}\n?>\n";
+
+        $c .= "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n";
+        $c .= "    <meta charset=\"UTF-8\">\n    <title>Recherche ".ucfirst($table)."</title>\n";
+        $c .= "    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+        $c .= "    <link href=\"assets/css/bootstrap-icons.css\" rel=\"stylesheet\">\n";
+        $c .= "    <link href=\"style.css\" rel=\"stylesheet\">\n</head>\n<body class=\"bg-light\">\n";
+        $c .= "<div class=\"container mt-5\">\n    <div class=\"card shadow-sm mb-4\">\n";
+        $c .= "        <div class=\"card-header bg-primary text-white\">\n            <h4 class=\"mb-0\"><i class=\"bi bi-search\"></i> Recherche de ".ucfirst($table)."</h4>\n        </div>\n";
+        $c .= "        <div class=\"card-body bg-white\">\n            <form method=\"GET\" class=\"row g-3 items-center\">\n";
+        
+        foreach ($filterCols as $fc) {
+            $info = $fields[$fc];
+            $c .= "                <div class=\"col-md-4\">\n                    <label class=\"form-label fw-bold\">".htmlspecialchars($info['label'])."</label>\n";
+            $c .= "                    <select name=\"$fc\" class=\"form-select\">\n                        <option value=\"\">-- Choisir --</option>\n";
+            if ($info['is_fk']) {
+                $fkTable = $info['fk_target'];
+                $fkDisplay = $info['fk_display'];
+                $fkCol = $info['fk_col'];
+                $c .= "                        <?php foreach (\${$fkTable}s as \$f): ?>\n";
+                $c .= "                        <option value=\"<?= \$f['$fkCol'] ?>\" <?= (isset(\$_GET['$fc']) && \$_GET['$fc'] == \$f['$fkCol']) ? 'selected' : '' ?>><?= htmlspecialchars(\$f['$fkDisplay']) ?></option>\n";
+                $c .= "                        <?php endforeach; ?>\n";
+            } else {
+                $c .= "                        <?php\n";
+                $c .= "                        \$stmtD = \$pdo->query(\"SELECT DISTINCT `$fc` FROM `$table` WHERE `$fc` IS NOT NULL AND `$fc` != '' ORDER BY `$fc`\");\n";
+                $c .= "                        while (\$rowD = \$stmtD->fetch(PDO::FETCH_ASSOC)): ?>\n";
+                $c .= "                            <option value=\"<?= htmlspecialchars(\$rowD['$fc']) ?>\" <?= (isset(\$_GET['$fc']) && \$_GET['$fc'] == \$rowD['$fc']) ? 'selected' : '' ?>><?= htmlspecialchars(\$rowD['$fc']) ?></option>\n";
+                $c .= "                        <?php endwhile; ?>\n";
+            }
+            $c .= "                    </select>\n                </div>\n";
+        }
+        
+        $c .= "                <div class=\"col-md-12 text-end\">\n                    <button type=\"submit\" class=\"btn btn-primary fw-bold\"><i class=\"bi bi-funnel-fill\"></i> Afficher les Résultats</button>\n";
+        $c .= "                    <a href=\"{$files['search']}\" class=\"btn btn-outline-secondary\">Réinitialiser</a>\n                </div>\n            </form>\n        </div>\n    </div>\n\n";
+
+        $c .= "    <?php if (\$hasFilter): ?>\n";
+        $c .= "    <div class=\"card shadow-sm\">\n        <div class=\"card-body p-0\">\n";
+        $c .= "            <table class=\"table table-hover mb-0\">\n                <thead class=\"table-light\">\n                    <tr>\n";
+        foreach ($fields as $name => $info) if(!$info['is_file']) $c .= "                        <th>".htmlspecialchars($info['label'])."</th>\n";
+        $c .= "                        <th>Actions</th>\n                    </tr>\n                </thead>\n                <tbody>\n";
+        $c .= "                    <?php foreach (\$items as \$item): ?>\n                    <tr>\n";
+        foreach ($fields as $name => $info) {
+            if(!$info['is_file']) {
+                if ($info['is_fk']) {
+                    if ($autoJoin) $c .= "                        <td><?= htmlspecialchars(\$item['{$name}_label'] ?? \$item['$name']) ?></td>\n";
+                    else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                } else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+            }
+        }
+        $c .= "                        <td><a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-info text-white\"><i class=\"bi bi-eye\"></i></a></td>\n                    </tr>\n                    <?php endforeach; ?>\n";
+        $c .= "                    <?php if (empty(\$items)): ?>\n                    <tr><td colspan=\"100\" class=\"text-center py-4 text-muted\">Aucun résultat correspondant à votre recherche.</td></tr>\n                    <?php endif; ?>\n                </tbody>\n            </table>\n        </div>\n    </div>\n";
+        $c .= "    <?php else: ?>\n";
+        $c .= "    <div class=\"alert alert-info text-center py-5\"><i class=\"bi bi-info-circle fs-2 d-block mb-3\"></i> Veuillez choisir au moins un filtre ci-dessus pour lancer la recherche.</div>\n";
+        $c .= "    <?php endif; ?>\n</div>\n</body>\n</html>";
         return $c;
     }
 

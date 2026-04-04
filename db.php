@@ -358,8 +358,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(lengthInput.value === '255') lengthInput.value = '';
             } else if (val === 'DECIMAL') {
                 lengthInput.placeholder = "ex: 10,2";
+                if(lengthInput.value === '255') lengthInput.value = '';
             } else {
                 lengthInput.placeholder = "Taille / Valeurs";
+                if(lengthInput.value === '255') lengthInput.value = '';
             }
         });
 
