@@ -166,9 +166,11 @@ try {
         $styleConfig = $data['style_config'] ?? [];
         $formLayout = $data['form_layout'] ?? '1';
         $listLayout = $data['list_layout'] ?? 'table';
+        $useDatatable = $data['use_datatable'] ?? true;
+        $actionConfig = $data['action_config'] ?? [];
         $filenames = $data['filenames'] ?? [];
 
-        $listCode = PageGenerator::generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $listLayout, $adminMode, $autoJoin, $generateView, $filenames);
+        $listCode = PageGenerator::generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $styleConfig, $listLayout, $adminMode, $autoJoin, $generateView, $filenames, $useDatatable, $actionConfig);
         $createCode = PageGenerator::generateCreateFile($table, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig, $conditionalRules, $filenames);
         $editCode = PageGenerator::generateEditFile($table, $primaryKey, $fields, $foreignKeys, $isProtected, $filterFk, $formLayout, $styleConfig, $conditionalRules, $filenames);
         $deleteCode = PageGenerator::generateDeleteFile($table, $primaryKey, $fields, $isProtected, $filterFk, $adminMode, $filenames);

@@ -41,7 +41,7 @@ class PageGenerator {
         return $c;
     }
 
-    public static function generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = [], $listLayout = 'table', $adminMode = false, $autoJoin = true, $hasView = false, $filenames = []) {
+    public static function generateListFile($table, $primaryKey, $fields, $foreignKeys, $isProtected = false, $filterFk = '', $styleConfig = [], $listLayout = 'table', $adminMode = false, $autoJoin = true, $hasView = false, $filenames = [], $useDatatable = true, $actionConfig = []) {
         $files = array_merge([
             'list' => "list_$table.php",
             'create' => "create_$table.php",
@@ -49,6 +49,29 @@ class PageGenerator {
             'delete' => "delete_$table.php",
             'view' => "view_$table.php"
         ], $filenames);
+
+        $showView = (isset($actionConfig['show_view']) && is_bool($actionConfig['show_view'])) ? $actionConfig['show_view'] : $hasView;
+        $showEdit = $actionConfig['show_edit'] ?? true;
+        $showDelete = $actionConfig['show_delete'] ?? true;
+        $btnType = $actionConfig['btn_type'] ?? 'icon';
+        $textView = $actionConfig['text_view'] ?? 'Voir';
+        $textEdit = $actionConfig['text_edit'] ?? 'Modifier';
+        $textDelete = $actionConfig['text_delete'] ?? 'Supprimer';
+
+        $colspan = 0;
+        foreach ($fields as $name => $info) {
+            if (isset($info['vis_list']) && !$info['vis_list']) continue;
+            $colspan++;
+        }
+        if ($showView || $showEdit || $showDelete) $colspan++;
+
+        $viewBtnContent = $btnType === 'icon' ? '<i class="bi bi-eye"></i>' : htmlspecialchars($textView);
+        $editBtnContent = $btnType === 'icon' ? '<i class="bi bi-pencil"></i> Modifier' : htmlspecialchars($textEdit);
+        $deleteBtnContent = $btnType === 'icon' ? '<i class="bi bi-trash"></i> Supprimer' : htmlspecialchars($textDelete);
+
+        $viewBtnContentTable = $btnType === 'icon' ? '<i class="bi bi-eye text-white"></i>' : htmlspecialchars($textView);
+        $editBtnContentTable = $btnType === 'icon' ? '<i class="bi bi-pencil"></i>' : htmlspecialchars($textEdit);
+        $deleteBtnContentTable = $btnType === 'icon' ? '<i class="bi bi-trash"></i>' : htmlspecialchars($textDelete);
 
         $c = "<?php\n";
         if ($isProtected) {
@@ -167,6 +190,9 @@ class PageGenerator {
         $c .= "    <title>Liste des ".ucfirst($table)."s</title>\n";
         $c .= "    <link href=\"assets/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
         $c .= "    <link href=\"assets/css/bootstrap-icons.css\" rel=\"stylesheet\">\n";
+        if ($useDatatable && $listLayout === 'table') {
+            $c .= "    <link href=\"data_table/datatables.min.css\" rel=\"stylesheet\">\n";
+        }
         $c .= "    <link href=\"style.css\" rel=\"stylesheet\">\n";
         $c .= "</head>\n<body class=\"bg-light\">\n";
         $c .= "<div class=\"container mt-5\">\n";
@@ -271,9 +297,9 @@ class PageGenerator {
             }
             $c .= "                </div>\n";
             $c .= "                <div class=\"card-footer bg-white border-0 d-flex justify-content-between pb-3\">\n";
-            if ($hasView) $c .= "                    <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-info btn-sm\"><i class=\"bi bi-eye\"></i></a>\n";
-            $c .= "                    <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-primary btn-sm\"><i class=\"bi bi-pencil\"></i> Modifier</a>\n";
-            $c .= "                    <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-danger btn-sm\" onclick=\"return confirm('Êtes-vous sûr ?')\"><i class=\"bi bi-trash\"></i> Supprimer</a>\n";
+            if ($showView) $c .= "                    <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-info btn-sm\">$viewBtnContent</a>\n";
+            if ($showEdit) $c .= "                    <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-primary btn-sm\">$editBtnContent</a>\n";
+            if ($showDelete) $c .= "                    <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-outline-danger btn-sm\" onclick=\"return confirm('Êtes-vous sûr ?')\">$deleteBtnContent</a>\n";
             $c .= "                </div>\n";
             $c .= "            </div>\n";
             $c .= "        </div>\n";
@@ -292,7 +318,9 @@ class PageGenerator {
                 if (isset($info['vis_list']) && !$info['vis_list']) continue;
                 $c .= "                        <th>" . htmlspecialchars($info['label']) . "</th>\n";
             }
-            $c .= "                        <th class=\"text-center\">Actions</th>\n";
+            if ($showView || $showEdit || $showDelete) {
+                $c .= "                        <th class=\"text-center\">Actions</th>\n";
+            }
             $c .= "                    </tr>\n";
             $c .= "                </thead>\n";
             $c .= "                <tbody>\n";
@@ -322,15 +350,17 @@ class PageGenerator {
                     }
                 } else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
             }
-            $c .= "                        <td class=\"text-center\">\n";
-            if ($hasView) $c .= "                            <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-info\"><i class=\"bi bi-eye text-white\"></i></a>\n";
-            $c .= "                            <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-primary\"><i class=\"bi bi-pencil\"></i></a>\n";
-            $c .= "                            <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-danger\" onclick=\"return confirm('Êtes-vous sûr ?')\"><i class=\"bi bi-trash\"></i></a>\n";
-            $c .= "                        </td>\n";
+            if ($showView || $showEdit || $showDelete) {
+                $c .= "                        <td class=\"text-center\">\n";
+                if ($showView) $c .= "                            <a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-info\">$viewBtnContentTable</a>\n";
+                if ($showEdit) $c .= "                            <a href=\"{$files['edit']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-primary\">$editBtnContentTable</a>\n";
+                if ($showDelete) $c .= "                            <a href=\"{$files['delete']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-danger\" onclick=\"return confirm('Êtes-vous sûr ?')\">$deleteBtnContentTable</a>\n";
+                $c .= "                        </td>\n";
+            }
             $c .= "                    </tr>\n";
             $c .= "                    <?php endforeach; ?>\n";
             $c .= "                    <?php if (empty(\$items)): ?>\n";
-            $c .= "                    <tr><td colspan=\"".(count($fields)+1)."\" class=\"text-center text-muted py-4\">Aucune donnée trouvée</td></tr>\n";
+            $c .= "                    <tr><td colspan=\"$colspan\" class=\"text-center text-muted py-4\">Aucune donnée trouvée</td></tr>\n";
             $c .= "                    <?php endif; ?>\n";
             $c .= "                </tbody>\n";
             $c .= "            </table>\n";
@@ -338,6 +368,31 @@ class PageGenerator {
             $c .= "    </div>\n";
         }
         $c .= "</div>\n";
+        if ($useDatatable && $listLayout === 'table') {
+            $c .= "<script src=\"data_table/datatables.min.js\"></script>\n";
+            $c .= "<script>\n";
+            $c .= "$(document).ready(function() {\n";
+            $c .= "    $('table').DataTable({\n";
+            $c .= "        language: {\n";
+            $c .= "            sEmptyTable: \"Aucune donnée disponible dans le tableau\",\n";
+            $c .= "            sInfo: \"Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments\",\n";
+            $c .= "            sInfoEmpty: \"Affichage de l'élément 0 à 0 sur 0 élément\",\n";
+            $c .= "            sInfoFiltered: \"(filtré à partir de _MAX_ éléments au total)\",\n";
+            $c .= "            sInfoPostFix: \"\",\n";
+            $c .= "            sInfoThousands: \",\",\n";
+            $c .= "            sLengthMenu: \"Afficher _MENU_ éléments\",\n";
+            $c .= "            sLoadingRecords: \"Chargement...\",\n";
+            $c .= "            sProcessing: \"Traitement...\",\n";
+            $c .= "            sSearch: \"Rechercher :\",\n";
+            $c .= "            sZeroRecords: \"Aucun élément correspondant trouvé\",\n";
+            $c .= "            oPaginate: { sFirst: \"Premier\", sLast: \"Dernier\", sNext: \"Suivant\", sPrevious: \"Précédent\" },\n";
+            $c .= "            oAria: { sSortAscending: \": activer pour trier la colonne par ordre croissant\", sSortDescending: \": activer pour trier la colonne par ordre décroissant\" },\n";
+            $c .= "            select: { rows: { _: \"%d lignes sélectionnées\", 0: \"Aucune ligne sélectionnée\", 1: \"1 ligne sélectionnée\" } }\n";
+            $c .= "        }\n";
+            $c .= "    });\n";
+            $c .= "});\n";
+            $c .= "</script>\n";
+        }
         $c .= "</body>\n</html>";
         return $c;
     }

@@ -119,6 +119,11 @@
                                     </select>
 
                                     <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="chk-use-datatable" checked>
+                                        <label class="form-check-label fw-bold" for="chk-use-datatable">Intégrer DataTables (Recherche & Pagination auto)</label>
+                                    </div>
+
+                                    <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" id="chk-generate-view" checked>
                                         <label class="form-check-label fw-bold" for="chk-generate-view">Générer page de Détails (view.php)</label>
                                     </div>
@@ -162,6 +167,54 @@
                                         <h6 class="fw-bold mb-2"><i class="bi bi-lightning"></i> Règles d'affichage conditionnel (Selects)</h6>
                                         <div id="rules-container" class="mb-2 small"></div>
                                         <button type="button" id="btn-add-rule" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus"></i> Ajouter une règle Show/Hide</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-top">
+                                <h5 class="text-secondary mb-3"><i class="bi bi-gear"></i> Colonne "Actions" (list.php)</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-4 border-end">
+                                        <h6 class="fw-bold small">Boutons Affichés</h6>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="chk-action-view" checked>
+                                            <label class="form-check-label fw-bold" for="chk-action-view">Bouton "Voir"</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="chk-action-edit" checked>
+                                            <label class="form-check-label fw-bold" for="chk-action-edit">Bouton "Modifier"</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="chk-action-delete" checked>
+                                            <label class="form-check-label fw-bold" for="chk-action-delete">Bouton "Supprimer"</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <h6 class="fw-bold small">Format & Personnalisation Textes</h6>
+                                        <div class="mb-3 d-flex gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="btnType" id="btn-icon" value="icon" onchange="document.getElementById('btn-text-inputs').classList.add('d-none')" checked>
+                                                <label class="form-check-label" for="btn-icon">Afficher des Icônes d'action</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="btnType" id="btn-text" value="text" onchange="document.getElementById('btn-text-inputs').classList.remove('d-none')">
+                                                <label class="form-check-label" for="btn-text">Afficher du Texte</label>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 d-none" id="btn-text-inputs">
+                                            <div class="col-4">
+                                                <label class="form-label small text-muted">A la place de l'icône Voir</label>
+                                                <input type="text" id="action-text-view" class="form-control form-control-sm" value="Détails">
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small text-muted">A la place de l'icône Éditer</label>
+                                                <input type="text" id="action-text-edit" class="form-control form-control-sm" value="Modifier">
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small text-muted">A la place de l'icône Delete</label>
+                                                <input type="text" id="action-text-delete" class="form-control form-control-sm" value="Supprimer">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -556,7 +609,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const auto_join = document.getElementById('chk-auto-join').checked;
         const form_layout = document.getElementById('sel-layout').value;
         const list_layout = document.getElementById('sel-list-layout').value;
+        const use_datatable = document.getElementById('chk-use-datatable').checked;
         const style_config = {}; 
+
+        const action_config = {
+            show_view: document.getElementById('chk-action-view').checked,
+            show_edit: document.getElementById('chk-action-edit').checked,
+            show_delete: document.getElementById('chk-action-delete').checked,
+            btn_type: document.querySelector('input[name="btnType"]:checked').value,
+            text_view: document.getElementById('action-text-view').value,
+            text_edit: document.getElementById('action-text-edit').value,
+            text_delete: document.getElementById('action-text-delete').value
+        };
 
         const btn = document.getElementById('btn-generate');
         const oldText = btn.innerHTML;
@@ -570,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ 
                     action: 'generate', host, user, pass, dbname, table, fields_config, 
                     is_protected, filter_fk, admin_mode, generate_view, generate_search, auto_join, 
-                    conditional_rules, form_layout, list_layout, style_config, filenames
+                    conditional_rules, form_layout, list_layout, use_datatable, style_config, filenames, action_config
                 })
             });
             const data = await res.json();
