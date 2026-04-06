@@ -81,6 +81,10 @@
                                 <i class="bi bi-funnel d-block mb-1"></i>
                                 <span class="small fw-bold">Filtre</span>
                             </th>
+                            <th class="text-center" style="width: 70px;" title="Visible dans la Liste (Tableau/Cards)">
+                                <i class="bi bi-table d-block mb-1"></i>
+                                <span class="small fw-bold">Liste</span>
+                            </th>
                             <th class="text-center" style="width: 70px;" title="Visible dans Create (AJOUT)">
                                 <i class="bi bi-plus-circle d-block mb-1"></i>
                                 <span class="small fw-bold">Ajout</span>
@@ -418,6 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </td>
                             <td class="text-center align-middle">
                                 <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input chk-vis-list" type="checkbox" checked>
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="form-check form-switch d-inline-block">
                                     <input class="form-check-input chk-vis-create" type="checkbox" checked>
                                 </div>
                             </td>
@@ -523,6 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sort_dir: sortDir ? sortDir.value : '',
                 is_search: row.querySelector('.chk-search').checked, 
                 is_filter: row.querySelector('.chk-filter').checked,
+                vis_list: row.querySelector('.chk-vis-list').checked,
                 vis_create: row.querySelector('.chk-vis-create').checked,
                 vis_edit: row.querySelector('.chk-vis-edit').checked
             };

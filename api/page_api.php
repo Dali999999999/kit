@@ -139,6 +139,7 @@ try {
                 'enum_values' => $enumValues,
                 'is_search' => !empty($cfg['is_search']),
                 'is_filter' => !empty($cfg['is_filter']),
+                'vis_list' => !isset($cfg['vis_list']) || $cfg['vis_list'] === true,
                 'vis_create' => !isset($cfg['vis_create']) || $cfg['vis_create'] === true,
                 'vis_edit' => !isset($cfg['vis_edit']) || $cfg['vis_edit'] === true,
                 'sort_prio' => !empty($cfg['sort_prio']) ? (int)$cfg['sort_prio'] : 999,

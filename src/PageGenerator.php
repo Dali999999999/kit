@@ -252,6 +252,7 @@ class PageGenerator {
             $idx = 0;
             foreach ($fields as $name => $info) {
                 if ($name === $fileCol) continue;
+                if (isset($info['vis_list']) && !$info['vis_list']) continue;
                 $label = htmlspecialchars($info['label']);
                 if ($idx === 0) $c .= "                    <h5 class=\"card-title text-primary fw-bold mb-3\"><?= htmlspecialchars(\$item['$name']) ?></h5>\n";
                 else {
@@ -287,7 +288,10 @@ class PageGenerator {
             $c .= "            <table class=\"table table-hover table-bordered mb-0\">\n";
             $c .= "                <thead class=\"table-dark\">\n";
             $c .= "                    <tr>\n";
-            foreach ($fields as $name => $info) $c .= "                        <th>" . htmlspecialchars($info['label']) . "</th>\n";
+            foreach ($fields as $name => $info) {
+                if (isset($info['vis_list']) && !$info['vis_list']) continue;
+                $c .= "                        <th>" . htmlspecialchars($info['label']) . "</th>\n";
+            }
             $c .= "                        <th class=\"text-center\">Actions</th>\n";
             $c .= "                    </tr>\n";
             $c .= "                </thead>\n";
@@ -295,6 +299,7 @@ class PageGenerator {
             $c .= "                    <?php foreach (\$items as \$item): ?>\n";
             $c .= "                    <tr>\n";
             foreach ($fields as $name => $info) {
+                if (isset($info['vis_list']) && !$info['vis_list']) continue;
                 if ($info['is_file']) {
                     $c .= "                        <td class=\"text-center\">\n";
                     $c .= "                            <?php if (\$item['$name']): ?>\n";
