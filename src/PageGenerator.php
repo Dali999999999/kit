@@ -359,7 +359,7 @@ class PageGenerator {
             }
             $c .= "                    </tr>\n";
             $c .= "                    <?php endforeach; ?>\n";
-            $c .= "                    <?php if (empty(\$items)): ?>\n";
+            $c .= "                    <?php if (empty(\$items)" . ($useDatatable ? " && false" : "") . "): ?>\n";
             $c .= "                    <tr><td colspan=\"$colspan\" class=\"text-center text-muted py-4\">Aucune donnée trouvée</td></tr>\n";
             $c .= "                    <?php endif; ?>\n";
             $c .= "                </tbody>\n";
