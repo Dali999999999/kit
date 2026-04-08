@@ -4,9 +4,11 @@ namespace AIO\Src;
 class PageGenerator {
 
     public static function getHtmlInputType($mysqlType) {
-        if (strpos($mysqlType, 'int') !== false || strpos($mysqlType, 'decimal') !== false || strpos($mysqlType, 'float') !== false) return 'number';
-        if (strpos($mysqlType, 'date') !== false) return 'date';
-        if (strpos($mysqlType, 'datetime') !== false) return 'datetime-local';
+        $typeStr = strtolower($mysqlType);
+        if (strpos($typeStr, 'int') !== false || strpos($typeStr, 'decimal') !== false || strpos($typeStr, 'float') !== false || strpos($typeStr, 'double') !== false || strpos($typeStr, 'year') !== false) return 'number';
+        if (strpos($typeStr, 'datetime') !== false || strpos($typeStr, 'timestamp') !== false) return 'datetime-local';
+        if (strpos($typeStr, 'date') !== false) return 'date';
+        if (strpos($typeStr, 'time') !== false) return 'time';
         return 'text';
     }
 
@@ -290,7 +292,18 @@ class PageGenerator {
                             $fkDisplay = $info['fk_display'];
                             $c .= "                        <?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?>\n";
                         }
-                    } else $c .= "                        <?= htmlspecialchars(\$item['$name']) ?>\n";
+                    } else {
+                        $typeLower = strtolower($info['type'] ?? '');
+                        if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                            $c .= "                        <?php if (\$item['$name'] !== null): ?>\n";
+                            $c .= "                            <span class=\"badge <?= \$item['$name'] ? 'bg-success' : 'bg-secondary' ?>\"><?= \$item['$name'] ? 'Oui' : 'Non' ?></span>\n";
+                            $c .= "                        <?php endif; ?>\n";
+                        } else if (strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) {
+                            $c .= "                        <?php \$val = \$item['$name']; echo (mb_strlen(\$val) > 50) ? htmlspecialchars(mb_substr(\$val, 0, 50)) . '...' : htmlspecialchars(\$val); ?>\n";
+                        } else {
+                            $c .= "                        <?= htmlspecialchars(\$item['$name']) ?>\n";
+                        }
+                    }
                     $c .= "                    </p>\n";
                 }
                 $idx++;
@@ -348,7 +361,25 @@ class PageGenerator {
                         $fkDisplay = $info['fk_display'];
                         $c .= "                        <td><?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?></td>\n";
                     }
-                } else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                } else {
+                    $typeLower = strtolower($info['type'] ?? '');
+                    if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                        $c .= "                        <td>\n";
+                        $c .= "                            <?php if (\$item['$name'] !== null): ?>\n";
+                        $c .= "                                <span class=\"badge <?= \$item['$name'] ? 'bg-success' : 'bg-secondary' ?>\"><?= \$item['$name'] ? 'Oui' : 'Non' ?></span>\n";
+                        $c .= "                            <?php endif; ?>\n";
+                        $c .= "                        </td>\n";
+                    } else if (strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) {
+                        $c .= "                        <td>\n";
+                        $c .= "                            <?php\n";
+                        $c .= "                            \$val = \$item['$name'];\n";
+                        $c .= "                            echo (mb_strlen(\$val) > 50) ? htmlspecialchars(mb_substr(\$val, 0, 50)) . '...' : htmlspecialchars(\$val);\n";
+                        $c .= "                            ?>\n";
+                        $c .= "                        </td>\n";
+                    } else {
+                        $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                    }
+                }
             }
             if ($showView || $showEdit || $showDelete) {
                 $c .= "                        <td class=\"text-center\">\n";
@@ -524,10 +555,16 @@ class PageGenerator {
                 $c .= "                        <div id=\"preview_$name\" class=\"mt-2 d-none position-relative\" style=\"max-width: 200px;\"></div>\n";
             } else {
                 $inputType = self::getHtmlInputType($info['type']);
-                if (strpos($info['type'], 'text') !== false && strpos($info['type'], 'varchar') === false) {
+                $typeLower = strtolower($info['type']);
+                if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                    $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
+                    $c .= "                            <option value=\"1\">Oui</option>\n";
+                    $c .= "                            <option value=\"0\">Non</option>\n";
+                    $c .= "                        </select>\n";
+                } else if ((strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) && strpos($typeLower, 'varchar') === false && strpos($typeLower, 'tinytext') === false) {
                     $c .= "                        <textarea name=\"$name\" class=\"form-control\" rows=\"4\" required></textarea>\n";
                 } else {
-                    $stepAttr = ($inputType === 'number' && (strpos($info['type'], 'float') !== false || strpos($info['type'], 'double') !== false || strpos($info['type'], 'decimal') !== false)) ? ' step="any"' : '';
+                    $stepAttr = ($inputType === 'number' && (strpos($typeLower, 'float') !== false || strpos($typeLower, 'double') !== false || strpos($typeLower, 'decimal') !== false)) ? ' step="any"' : '';
                     $c .= "                        <input type=\"$inputType\" name=\"$name\" class=\"form-control\"$stepAttr required>\n";
                 }
             }
@@ -738,12 +775,18 @@ class PageGenerator {
                 $c .= "                        <input type=\"file\" id=\"file_$name\" name=\"$name\" class=\"form-control file-upload-input\" accept=\"image/*,.pdf,.doc,.docx,.xls,.xlsx\">\n";
             } else {
                 $inputType = self::getHtmlInputType($info['type']);
-                if (strpos($info['type'], 'text') !== false && strpos($info['type'], 'varchar') === false) {
+                $typeLower = strtolower($info['type']);
+                if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                    $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
+                    $c .= "                            <option value=\"1\" <?= \$item['$name'] == 1 ? 'selected' : '' ?>>Oui</option>\n";
+                    $c .= "                            <option value=\"0\" <?= \$item['$name'] == 0 ? 'selected' : '' ?>>Non</option>\n";
+                    $c .= "                        </select>\n";
+                } else if ((strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) && strpos($typeLower, 'varchar') === false && strpos($typeLower, 'tinytext') === false) {
                     $c .= "                        <textarea name=\"$name\" class=\"form-control\" rows=\"4\" required><?= htmlspecialchars(\$item['$name']) ?></textarea>\n";
                 } elseif ($inputType == 'datetime-local') {
                     $c .= "                        <input type=\"$inputType\" name=\"$name\" class=\"form-control\" value=\"<?= date('Y-m-d\TH:i', strtotime(\$item['$name'])) ?>\" required>\n";
                 } else {
-                    $stepAttr = ($inputType === 'number') ? ' step="any"' : '';
+                    $stepAttr = ($inputType === 'number' && (strpos($typeLower, 'float') !== false || strpos($typeLower, 'double') !== false || strpos($typeLower, 'decimal') !== false)) ? ' step="any"' : '';
                     $c .= "                        <input type=\"$inputType\" name=\"$name\" class=\"form-control\" value=\"<?= htmlspecialchars(\$item['$name']) ?>\"$stepAttr required>\n";
                 }
             }
@@ -884,7 +927,16 @@ class PageGenerator {
                  $fkDisplay = $info['fk_display'];
                  $c .= "                    <td><?= htmlspecialchars(\${$fkTable}_map[\$item['$name']]['$fkDisplay'] ?? \$item['$name']) ?></td>\n";
              } else {
-                 $c .= "                    <td><?= nl2br(htmlspecialchars(\$item['$name'])) ?></td>\n";
+                 $typeLower = strtolower($info['type'] ?? '');
+                 if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                     $c .= "                    <td>\n";
+                     $c .= "                        <?php if (\$item['$name'] !== null): ?>\n";
+                     $c .= "                            <span class=\"badge <?= \$item['$name'] ? 'bg-success' : 'bg-secondary' ?>\"><?= \$item['$name'] ? 'Oui' : 'Non' ?></span>\n";
+                     $c .= "                        <?php endif; ?>\n";
+                     $c .= "                    </td>\n";
+                 } else {
+                     $c .= "                    <td><?= nl2br(htmlspecialchars(\$item['$name'])) ?></td>\n";
+                 }
              }
              $c .= "                </tr>\n";
         }
@@ -993,7 +1045,25 @@ class PageGenerator {
                 if ($info['is_fk']) {
                     if ($autoJoin) $c .= "                        <td><?= htmlspecialchars(\$item['{$name}_label'] ?? \$item['$name']) ?></td>\n";
                     else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
-                } else $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                } else {
+                    $typeLower = strtolower($info['type'] ?? '');
+                    if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
+                        $c .= "                        <td>\n";
+                        $c .= "                            <?php if (\$item['$name'] !== null): ?>\n";
+                        $c .= "                                <span class=\"badge <?= \$item['$name'] ? 'bg-success' : 'bg-secondary' ?>\"><?= \$item['$name'] ? 'Oui' : 'Non' ?></span>\n";
+                        $c .= "                            <?php endif; ?>\n";
+                        $c .= "                        </td>\n";
+                    } else if (strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) {
+                        $c .= "                        <td>\n";
+                        $c .= "                            <?php\n";
+                        $c .= "                            \$val = \$item['$name'];\n";
+                        $c .= "                            echo (mb_strlen(\$val) > 50) ? htmlspecialchars(mb_substr(\$val, 0, 50)) . '...' : htmlspecialchars(\$val);\n";
+                        $c .= "                            ?>\n";
+                        $c .= "                        </td>\n";
+                    } else {
+                        $c .= "                        <td><?= htmlspecialchars(\$item['$name']) ?></td>\n";
+                    }
+                }
             }
         }
         $c .= "                        <td><a href=\"{$files['view']}?{$primaryKey}=<?= \$item['$primaryKey'] ?>\" class=\"btn btn-sm btn-info text-white\"><i class=\"bi bi-eye\"></i></a></td>\n                    </tr>\n                    <?php endforeach; ?>\n";

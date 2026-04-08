@@ -32,17 +32,17 @@ class DbGenerator {
                 $fkTable = $field['fkTable'] ?? '';
                 $fkField = $field['fkField'] ?? '';
 
-                if (strtoupper($type) === 'VARCHAR' && empty($length)) {
+                if (in_array(strtoupper($type), ['VARCHAR', 'CHAR']) && empty($length)) {
                     $length = '255';
                 }
 
                 $fullType = strtoupper($type);
                 
                 // Types that do not take a length parameter, or where length causes errors
-                $noLengthTypes = ['DATE', 'DATETIME', 'BOOLEAN', 'TEXT', 'TINYINT', 'LONGTEXT', 'MEDIUMTEXT'];
+                $noLengthTypes = ['DATE', 'DATETIME', 'TIMESTAMP', 'TIME', 'YEAR', 'BOOLEAN', 'TEXT', 'TINYTEXT', 'MEDIUMTEXT', 'LONGTEXT', 'BLOB', 'TINYINT'];
                 if (in_array($fullType, $noLengthTypes) && is_numeric($length)) {
-                    if ($fullType === 'DATETIME' && (int)$length <= 6) {
-                        // DATETIME safely accepts 0-6 length
+                    if (in_array($fullType, ['DATETIME', 'TIMESTAMP', 'TIME']) && (int)$length <= 6) {
+                        // safely accepts 0-6 length
                     } else {
                         $length = '';
                     }

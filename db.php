@@ -117,16 +117,34 @@
             <input type="text" class="form-control field-name-input" placeholder="Nom du champ">
             
             <select class="form-select field-type-select">
-                <option value="INT">INT</option>
-                <option value="VARCHAR">VARCHAR</option>
-                <option value="TEXT">TEXT</option>
-                <option value="DECIMAL">DECIMAL</option>
-                <option value="FLOAT">FLOAT</option>
-                <option value="DOUBLE">DOUBLE</option>
-                <option value="BOOLEAN">BOOLEAN</option>
-                <option value="DATE">DATE</option>
-                <option value="DATETIME">DATETIME</option>
-                <option value="ENUM">ENUM</option>
+                <optgroup label="Numériques">
+                    <option value="INT">INT</option>
+                    <option value="TINYINT">TINYINT</option>
+                    <option value="SMALLINT">SMALLINT</option>
+                    <option value="MEDIUMINT">MEDIUMINT</option>
+                    <option value="BIGINT">BIGINT</option>
+                    <option value="DECIMAL">DECIMAL</option>
+                    <option value="FLOAT">FLOAT</option>
+                    <option value="DOUBLE">DOUBLE</option>
+                    <option value="BOOLEAN">BOOLEAN</option>
+                </optgroup>
+                <optgroup label="Chaînes de caractères">
+                    <option value="VARCHAR">VARCHAR</option>
+                    <option value="CHAR">CHAR</option>
+                    <option value="TINYTEXT">TINYTEXT</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="MEDIUMTEXT">MEDIUMTEXT</option>
+                    <option value="LONGTEXT">LONGTEXT</option>
+                    <option value="BLOB">BLOB</option>
+                    <option value="ENUM">ENUM</option>
+                </optgroup>
+                <optgroup label="Dates & Heures">
+                    <option value="DATE">DATE</option>
+                    <option value="DATETIME">DATETIME</option>
+                    <option value="TIME">TIME</option>
+                    <option value="TIMESTAMP">TIMESTAMP</option>
+                    <option value="YEAR">YEAR</option>
+                </optgroup>
             </select>
 
             <input type="text" class="form-control field-length-input" placeholder="Taille / Valeurs">
@@ -351,12 +369,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         typeSelect.addEventListener('change', (e) => {
             const val = e.target.value;
-            if (val === 'VARCHAR' && lengthInput.value === '') {
+            if (['VARCHAR', 'CHAR'].includes(val) && lengthInput.value === '') {
                 lengthInput.value = '255'; lengthInput.placeholder = "Taille (ex: 255)";
             } else if (val === 'ENUM') {
                 lengthInput.placeholder = "ex: 'Admin', 'User'";
                 if(lengthInput.value === '255') lengthInput.value = '';
-            } else if (val === 'DECIMAL') {
+            } else if (['DECIMAL', 'FLOAT', 'DOUBLE'].includes(val)) {
                 lengthInput.placeholder = "ex: 10,2";
                 if(lengthInput.value === '255') lengthInput.value = '';
             } else {
@@ -457,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fkTable = fieldRow.querySelector('.fk-table-select').value;
                 const fkField = fieldRow.querySelector('.fk-field-select').value;
 
-                if (type === 'VARCHAR' && length === '') {
+                if (['VARCHAR', 'CHAR'].includes(type) && length === '') {
                     alert(`Erreur : Le champ '${name}' (table '${tableName}') nécessite une taille.`);
                     hasError = true;
                 }
