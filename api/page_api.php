@@ -57,8 +57,10 @@ try {
                 $fkTargetColumns = $fkStmt->fetchAll(PDO::FETCH_COLUMN);
             }
 
+            $typeRaw = $col['Type'] ?? '';
             $fields[] = [
                 'name' => $name,
+                'type' => $typeRaw,
                 'is_fk' => $isFk,
                 'fk_target' => $isFk ? $foreignKeys[$name]['table'] : null,
                 'fk_columns' => $fkTargetColumns
@@ -120,8 +122,9 @@ try {
             if ($col['Key'] === 'PRI') $primaryKey = $name;
             
             $isEnum = strpos($type, 'enum') === 0;
+            $isSet = strpos($type, 'set') === 0;
             $enumValues = [];
-            if ($isEnum) {
+            if ($isEnum || $isSet) {
                 preg_match_all("/'([^']+)'/", $type, $matches);
                 $enumValues = $matches[1] ?? [];
             }
@@ -136,7 +139,9 @@ try {
                 'fk_col' => isset($foreignKeys[$name]) ? $foreignKeys[$name]['column'] : null,
                 'is_file' => (isset($colComments[$name]) && $colComments[$name] === 'is_file'),
                 'is_enum' => $isEnum,
+                'is_set' => $isSet,
                 'enum_values' => $enumValues,
+                'input_style' => !empty($cfg['input_style']) ? $cfg['input_style'] : 'select',
                 'is_search' => !empty($cfg['is_search']),
                 'is_filter' => !empty($cfg['is_filter']),
                 'vis_list' => !isset($cfg['vis_list']) || $cfg['vis_list'] === true,

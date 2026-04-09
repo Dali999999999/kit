@@ -474,7 +474,11 @@ class PageGenerator {
             } elseif ($name === $filterFk) {
                 $c .= "    \$$name = \$_SESSION['user_id'] ?? null;\n";
             } else {
-                $c .= "    \$$name = \$_POST['$name'] ?? null;\n";
+                if (!empty($info['is_set'])) {
+                    $c .= "    \$$name = isset(\$_POST['$name']) && is_array(\$_POST['$name']) ? implode(',', \$_POST['$name']) : (\$_POST['$name'] ?? null);\n";
+                } else {
+                    $c .= "    \$$name = \$_POST['$name'] ?? null;\n";
+                }
             }
             $insertArgs[] = "\$$name";
         }
@@ -524,6 +528,8 @@ class PageGenerator {
                 $dependsOn = $info['depends_on'] ?? '';
                 $dependsCol = $info['depends_col'] ?? '';
                 
+                $iStyle = $info['input_style'] ?? 'select';
+                
                 if (!empty($dependsOn) && !empty($dependsCol)) {
                     $dependentScripts[] = ['child' => $name, 'parent' => $dependsOn];
                     $c .= "                        <select name=\"$name\" id=\"sel_$name\" class=\"form-select dependent-select\" required>\n";
@@ -535,21 +541,56 @@ class PageGenerator {
                     $c .= "                            <?php endforeach; ?>\n";
                     $c .= "                        </select>\n";
                 } else {
-                    $c .= "                        <select name=\"$name\" id=\"sel_$name\" class=\"form-select\" required>\n";
-                    $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
-                    $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
-                    $c .= "                            <option value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\"><?= htmlspecialchars(\$f_item['$fkDisplay']) ?></option>\n";
-                    $c .= "                            <?php endforeach; ?>\n";
+                    if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                        $js = ($iStyle === 'checkbox') ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $reqStr = ($iStyle === 'radio') ? " required" : "";
+                        $c .= "                        <div>\n";
+                        $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
+                        $c .= "                            <div class=\"form-check\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_<?= htmlspecialchars(\$f_item['$fkCol']) ?>\" value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\"$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_<?= htmlspecialchars(\$f_item['$fkCol']) ?>\">\n";
+                        $c .= "                                    <?= htmlspecialchars(\$f_item['$fkDisplay']) ?>\n";
+                        $c .= "                                </label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                            <?php endforeach; ?>\n";
+                        $c .= "                        </div>\n";
+                    } else {
+                        $c .= "                        <select name=\"$name\" id=\"sel_$name\" class=\"form-select\" required>\n";
+                        $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
+                        $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
+                        $c .= "                            <option value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\"><?= htmlspecialchars(\$f_item['$fkDisplay']) ?></option>\n";
+                        $c .= "                            <?php endforeach; ?>\n";
+                        $c .= "                        </select>\n";
+                    }
+                }
+            } elseif ($info['is_enum'] || !empty($info['is_set'])) {
+                $iStyle = $info['input_style'] ?? 'select';
+                $isSet = !empty($info['is_set']);
+                if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                    $c .= "                        <div>\n";
+                    foreach ($info['enum_values'] as $val) {
+                        $safeVal = htmlspecialchars($val);
+                        // SET natively permits multi-select; ENUM does not. Checkboxes for ENUM will enforce single via JS.
+                        $js = ($iStyle === 'checkbox' && !$isSet) ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $inputName = $isSet ? "{$name}[]" : $name;
+                        $req = ($isSet || $iStyle === 'checkbox') ? "" : " required";
+                        $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$inputName\" id=\"{$name}_$safeVal\" value=\"$safeVal\"$js$req>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_$safeVal\">$safeVal</label>\n";
+                        $c .= "                            </div>\n";
+                    }
+                    $c .= "                        </div>\n";
+                } else {
+                    $reqArray = $isSet ? "multiple" : "required";
+                    $inputName = $isSet ? "{$name}[]" : $name;
+                    $c .= "                        <select name=\"$inputName\" class=\"form-select\" $reqArray>\n";
+                    if (!$isSet) $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
+                    foreach ($info['enum_values'] as $val) {
+                        $safeVal = addslashes($val);
+                        $c .= "                            <option value=\"$safeVal\">" . htmlspecialchars($val) . "</option>\n";
+                    }
                     $c .= "                        </select>\n";
                 }
-            } elseif ($info['is_enum']) {
-                $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
-                $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
-                foreach ($info['enum_values'] as $val) {
-                    $safeVal = addslashes($val);
-                    $c .= "                            <option value=\"$safeVal\">" . htmlspecialchars($val) . "</option>\n";
-                }
-                $c .= "                        </select>\n";
             } elseif ($info['is_file']) {
                 $c .= "                        <input type=\"file\" id=\"file_$name\" name=\"$name\" class=\"form-control file-upload-input\" data-preview=\"preview_$name\" accept=\"image/*,.pdf,.doc,.docx,.xls,.xlsx\">\n";
                 $c .= "                        <div id=\"preview_$name\" class=\"mt-2 d-none position-relative\" style=\"max-width: 200px;\"></div>\n";
@@ -557,10 +598,26 @@ class PageGenerator {
                 $inputType = self::getHtmlInputType($info['type']);
                 $typeLower = strtolower($info['type']);
                 if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
-                    $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
-                    $c .= "                            <option value=\"1\">Oui</option>\n";
-                    $c .= "                            <option value=\"0\">Non</option>\n";
-                    $c .= "                        </select>\n";
+                    $iStyle = $info['input_style'] ?? 'select';
+                    if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                        $js = ($iStyle === 'checkbox') ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $reqStr = ($iStyle === 'radio') ? " required" : "";
+                        $c .= "                        <div>\n";
+                        $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_1\" value=\"1\"$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_1\">Oui</label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_0\" value=\"0\"$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_0\">Non</label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                        </div>\n";
+                    } else {
+                        $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
+                        $c .= "                            <option value=\"1\">Oui</option>\n";
+                        $c .= "                            <option value=\"0\">Non</option>\n";
+                        $c .= "                        </select>\n";
+                    }
                 } else if ((strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) && strpos($typeLower, 'varchar') === false && strpos($typeLower, 'tinytext') === false) {
                     $c .= "                        <textarea name=\"$name\" class=\"form-control\" rows=\"4\" required></textarea>\n";
                 } else {
@@ -693,7 +750,11 @@ class PageGenerator {
             } elseif ($name === $filterFk) {
                 $c .= "    \$$name = \$_SESSION['user_id'] ?? null;\n";
             } else {
-                $c .= "    \$$name = \$_POST['$name'] ?? null;\n";
+                if (!empty($info['is_set'])) {
+                    $c .= "    \$$name = isset(\$_POST['$name']) && is_array(\$_POST['$name']) ? implode(',', \$_POST['$name']) : (\$_POST['$name'] ?? null);\n";
+                } else {
+                    $c .= "    \$$name = \$_POST['$name'] ?? null;\n";
+                }
             }
             $updateArgs[] = "\$$name";
         }
@@ -738,6 +799,8 @@ class PageGenerator {
                 
                 $dependsOn = $info['depends_on'] ?? '';
                 $dependsCol = $info['depends_col'] ?? '';
+                
+                $iStyle = $info['input_style'] ?? 'select';
 
                 if (!empty($dependsOn) && !empty($dependsCol)) {
                     $dependentScripts[] = ['child' => $name, 'parent' => $dependsOn];
@@ -750,21 +813,69 @@ class PageGenerator {
                     $c .= "                            <?php endforeach; ?>\n";
                     $c .= "                        </select>\n";
                 } else {
-                    $c .= "                        <select name=\"$name\" id=\"sel_$name\" class=\"form-select\" required>\n";
-                    $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
-                    $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
-                    $c .= "                            <option value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\" <?= \$item['$name'] == \$f_item['$fkCol'] ? 'selected' : '' ?>>\n";
-                    $c .= "                                <?= htmlspecialchars(\$f_item['$fkDisplay']) ?>\n";
-                    $c .= "                            </option>\n";
-                    $c .= "                            <?php endforeach; ?>\n";
+                    if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                        $js = ($iStyle === 'checkbox') ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $reqStr = ($iStyle === 'radio') ? " required" : "";
+                        $c .= "                        <div>\n";
+                        $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
+                        $c .= "                            <div class=\"form-check\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_<?= htmlspecialchars(\$f_item['$fkCol']) ?>\" value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\" <?= \$item['$name'] == \$f_item['$fkCol'] ? 'checked' : '' ?>$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_<?= htmlspecialchars(\$f_item['$fkCol']) ?>\">\n";
+                        $c .= "                                    <?= htmlspecialchars(\$f_item['$fkDisplay']) ?>\n";
+                        $c .= "                                </label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                            <?php endforeach; ?>\n";
+                        $c .= "                        </div>\n";
+                    } else {
+                        $c .= "                        <select name=\"$name\" id=\"sel_$name\" class=\"form-select\" required>\n";
+                        $c .= "                            <option value=\"\">-- Sélectionner --</option>\n";
+                        $c .= "                            <?php foreach (\${$fkTable}s as \$f_item): ?>\n";
+                        $c .= "                            <option value=\"<?= htmlspecialchars(\$f_item['$fkCol']) ?>\" <?= \$item['$name'] == \$f_item['$fkCol'] ? 'selected' : '' ?>>\n";
+                        $c .= "                                <?= htmlspecialchars(\$f_item['$fkDisplay']) ?>\n";
+                        $c .= "                            </option>\n";
+                        $c .= "                            <?php endforeach; ?>\n";
+                        $c .= "                        </select>\n";
+                    }
+                }
+            } elseif ($info['is_enum'] || !empty($info['is_set'])) {
+                $iStyle = $info['input_style'] ?? 'select';
+                $isSet = !empty($info['is_set']);
+                if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                    $c .= "                        <div>\n";
+                    foreach ($info['enum_values'] as $val) {
+                        $safeVal = htmlspecialchars($val);
+                        // SET natively permits multi-select; ENUM does not. Checkboxes for ENUM will enforce single via JS.
+                        $js = ($iStyle === 'checkbox' && !$isSet) ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $inputName = $isSet ? "{$name}[]" : $name;
+                        $req = ($isSet || $iStyle === 'checkbox') ? "" : " required";
+                        if ($isSet) {
+                            $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                            $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$inputName\" id=\"{$name}_$safeVal\" value=\"$safeVal\" <?= in_array('$safeVal', explode(',', \$item['$name'])) ? 'checked' : '' ?>$js$req>\n";
+                            $c .= "                                <label class=\"form-check-label\" for=\"{$name}_$safeVal\">$safeVal</label>\n";
+                            $c .= "                            </div>\n";
+                        } else {
+                            $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                            $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$inputName\" id=\"{$name}_$safeVal\" value=\"$safeVal\" <?= \$item['$name'] === '$safeVal' ? 'checked' : '' ?>$js$req>\n";
+                            $c .= "                                <label class=\"form-check-label\" for=\"{$name}_$safeVal\">$safeVal</label>\n";
+                            $c .= "                            </div>\n";
+                        }
+                    }
+                    $c .= "                        </div>\n";
+                } else {
+                    $reqArray = $isSet ? "multiple" : "required";
+                    $inputName = $isSet ? "{$name}[]" : $name;
+                    $c .= "                        <select name=\"$inputName\" class=\"form-select\" $reqArray>\n";
+                    if ($isSet) {
+                        foreach ($info['enum_values'] as $val) {
+                            $c .= "                            <option value=\"$val\" <?= in_array('$val', explode(',', \$item['$name'])) ? 'selected' : '' ?>>" . htmlspecialchars($val) . "</option>\n";
+                        }
+                    } else {
+                        foreach ($info['enum_values'] as $val) {
+                            $c .= "                            <option value=\"$val\" <?= \$item['$name'] === '$val' ? 'selected' : '' ?>>" . htmlspecialchars($val) . "</option>\n";
+                        }
+                    }
                     $c .= "                        </select>\n";
                 }
-            } elseif ($info['is_enum']) {
-                $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
-                foreach ($info['enum_values'] as $val) {
-                    $c .= "                            <option value=\"$val\" <?= \$item['$name'] === '$val' ? 'selected' : '' ?>>" . htmlspecialchars($val) . "</option>\n";
-                }
-                $c .= "                        </select>\n";
             } elseif ($info['is_file']) {
                 $c .= "                        <?php if (\$item['$name']): ?>\n";
                 $c .= "                        <div class=\"mb-2 p-2 border rounded bg-white\">\n";
@@ -777,10 +888,26 @@ class PageGenerator {
                 $inputType = self::getHtmlInputType($info['type']);
                 $typeLower = strtolower($info['type']);
                 if ($typeLower === 'boolean' || $typeLower === 'tinyint(1)') {
-                    $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
-                    $c .= "                            <option value=\"1\" <?= \$item['$name'] == 1 ? 'selected' : '' ?>>Oui</option>\n";
-                    $c .= "                            <option value=\"0\" <?= \$item['$name'] == 0 ? 'selected' : '' ?>>Non</option>\n";
-                    $c .= "                        </select>\n";
+                    $iStyle = $info['input_style'] ?? 'select';
+                    if ($iStyle === 'radio' || $iStyle === 'checkbox') {
+                        $js = ($iStyle === 'checkbox') ? " onclick=\"document.querySelectorAll('input[name=\\'{$name}\\']').forEach(cb => { if(cb !== this) cb.checked = false; })\"" : "";
+                        $reqStr = ($iStyle === 'radio') ? " required" : "";
+                        $c .= "                        <div>\n";
+                        $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_1\" value=\"1\" <?= \$item['$name'] == 1 ? 'checked' : '' ?>$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_1\">Oui</label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                            <div class=\"form-check form-check-inline\">\n";
+                        $c .= "                                <input class=\"form-check-input\" type=\"$iStyle\" name=\"$name\" id=\"{$name}_0\" value=\"0\" <?= \$item['$name'] == 0 ? 'checked' : '' ?>$js$reqStr>\n";
+                        $c .= "                                <label class=\"form-check-label\" for=\"{$name}_0\">Non</label>\n";
+                        $c .= "                            </div>\n";
+                        $c .= "                        </div>\n";
+                    } else {
+                        $c .= "                        <select name=\"$name\" class=\"form-select\" required>\n";
+                        $c .= "                            <option value=\"1\" <?= \$item['$name'] == 1 ? 'selected' : '' ?>>Oui</option>\n";
+                        $c .= "                            <option value=\"0\" <?= \$item['$name'] == 0 ? 'selected' : '' ?>>Non</option>\n";
+                        $c .= "                        </select>\n";
+                    }
                 } else if ((strpos($typeLower, 'text') !== false || strpos($typeLower, 'blob') !== false || strpos($typeLower, 'json') !== false) && strpos($typeLower, 'varchar') === false && strpos($typeLower, 'tinytext') === false) {
                     $c .= "                        <textarea name=\"$name\" class=\"form-control\" rows=\"4\" required><?= htmlspecialchars(\$item['$name']) ?></textarea>\n";
                 } elseif ($inputType == 'datetime-local') {

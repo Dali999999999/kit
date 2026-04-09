@@ -418,8 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterSel.innerHTML = '<option value="">-- Choisir une FK --</option>';
 
                 data.fields.forEach(f => {
-                    let fkSelectHtml = '<span class="text-muted">-</span>';
+                    let fkSelectHtml = '';
                     let dependHtml = '';
+                    let inputStyleHtml = '';
                     
                     if (f.is_fk) {
                         fkSelectHtml = `<select class="form-select form-select-sm text-primary fw-bold fk-display-sel mb-1" data-field="${f.name}">`;
@@ -441,6 +442,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </select>
                             </div>
                         `;
+                    } else {
+                        fkSelectHtml = '<span class="text-muted">-</span>';
+                    }
+                    
+                    const tLower = f.type ? f.type.toLowerCase() : '';
+                    const isChoice = f.is_fk || tLower.includes('enum') || tLower.includes('set') || tLower === 'boolean' || tLower === 'tinyint(1)';
+                    if (isChoice) {
+                        inputStyleHtml = `
+                            <div class="mt-2">
+                                <span class="badge bg-secondary mb-1">Style de Saisie</span>
+                                <select class="form-select form-select-sm input-style-sel">
+                                    <option value="select">Liste déroulante (Select)</option>
+                                    <option value="radio">Boutons Radio</option>
+                                    <option value="checkbox">Cases à cocher (Checkbox)</option>
+                                </select>
+                            </div>
+                        `;
                     }
                     
                     let defaultLabel = f.name.charAt(0).toUpperCase() + f.name.slice(1).replace(/_/g, ' ');
@@ -452,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <td>
                                 ${fkSelectHtml}
                                 ${dependHtml}
+                                ${inputStyleHtml}
                             </td>
                             <td class="text-center align-middle" style="width: 150px;">
                                 <div class="input-group input-group-sm">
@@ -573,6 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const fkSel = row.querySelector('.fk-display-sel');
             const depOnSel = row.querySelector('.depend-on-sel');
             const depColSel = row.querySelector('.depend-col-sel');
+            const styleSel = row.querySelector('.input-style-sel');
             const sortPrio = row.querySelector('.sort-prio');
             const sortDir = row.querySelector('.sort-dir');
             
@@ -581,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fk_display: fkSel ? fkSel.value : null, 
                 depends_on: depOnSel ? depOnSel.value : null,
                 depends_col: depColSel ? depColSel.value : null,
+                input_style: styleSel ? styleSel.value : 'select',
                 sort_prio: sortPrio && sortPrio.value ? parseInt(sortPrio.value) : 999,
                 sort_dir: sortDir ? sortDir.value : '',
                 is_search: row.querySelector('.chk-search').checked, 
